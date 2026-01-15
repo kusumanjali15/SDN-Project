@@ -1,0 +1,36 @@
+%YAML 1.1
+---
+
+# Suricata IDS Configuration
+vars:
+  address-groups:
+    HOME_NET: "[10.0.1.0/24,10.0.2.0/24]"
+    EXTERNAL_NET: "!$HOME_NET"
+
+af-packet:
+  - interface: suricata-ext
+    defrag: yes
+    use-mmap: yes
+    tpacket-v3: yes
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: /tmp/suricata-alerts.json
+      types:
+        - alert
+
+  - fast:
+      enabled: yes
+      filename: /tmp/suricata-fast.log
+
+logging:
+  default-log-level: notice
+  outputs:
+    - console:
+        enabled: yes
+
+default-rule-path: /home/kali/sdn-project/config
+rule-files:
+  - custom.rules
