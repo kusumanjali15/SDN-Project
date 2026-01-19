@@ -5,6 +5,9 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ethernet, ether_types, ipv4
 from collections import defaultdict
 import os
+import threading
+import json
+import time
 
 class SimpleSwitch13(app_manager.RyuApp):
     """Learning switch with traffic mirroring to Suricata IDS and IP blocking"""
@@ -16,6 +19,13 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.suricata_port = {}  # Initialize suricata_port here!
         self.blocked_ips = set()  # Set to store blocked IP addresses
         self.blocked_ips_file = '/tmp/blocked_ips.txt'
+        self.alert_file = '/tmp/suricata-alerts.json'
+        self.datapaths = {}  # Store all connected datapaths
+        
+        # Start alert monitoring thread
+        self.monitor_thread = threading.Thread(target=self._monitor_alerts, daemon=True)
+        self.monitor_thread.start()
+        self.logger.info("Alert monitoring thread started")
 
     def _load_suricata_port(self):
         """Load Suricata port information from file"""
@@ -41,6 +51,101 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.info("Loaded %d blocked IPs", len(self.blocked_ips))
         except Exception as e:
             self.logger.error("Error loading blocked IPs: %s", e)
+
+    def _monitor_alerts(self):
+        """Background thread that monitors Suricata alert file"""
+        self.logger.info("Starting alert monitoring for %s", self.alert_file)
+        
+        last_position = 0
+        
+        while True:
+            try:
+                if os.path.exists(self.alert_file):
+                    file_size = os.path.getsize(self.alert_file)
+                    
+                    if file_size > last_position:
+                        with open(self.alert_file, 'r') as f:
+                            f.seek(last_position)
+                            
+                            for line in f:
+                                line = line.strip()
+                                if line:
+                                    try:
+                                        alert_data = json.loads(line)
+                                        self._process_alert(alert_data)
+                                    except json.JSONDecodeError as e:
+                                        self.logger.warning("Failed to parse alert JSON: %s", e)
+                            
+                            last_position = f.tell()
+                    
+                    elif file_size < last_position:
+                        self.logger.info("Alert file was truncated, resetting position")
+                        last_position = 0
+                
+                time.sleep(1)
+                
+            except Exception as e:
+                self.logger.error("Error monitoring alerts: %s", e)
+                time.sleep(5)
+
+    def _process_alert(self, alert_data):
+        """Process a single Suricata alert and block IPs if necessary"""
+        try:
+            if alert_data.get('event_type') != 'alert':
+                return
+            
+            alert = alert_data.get('alert', {})
+            priority = alert.get('severity')
+            src_ip = alert_data.get('src_ip')
+            signature = alert.get('signature', 'Unknown')
+            sid = alert.get('signature_id', 0)
+            
+            self.logger.info("Alert detected: SID=%s, Priority=%s, SrcIP=%s, Signature=%s", 
+                           sid, priority, src_ip, signature)
+            
+            if priority in [1, 2] and src_ip:
+                self.logger.warning("HIGH PRIORITY ALERT (Priority %s) from %s - Initiating block", 
+                                  priority, src_ip)
+                
+                self._block_ip_all_switches(src_ip)
+            
+        except Exception as e:
+            self.logger.error("Error processing alert: %s", e)
+
+    def _block_ip_all_switches(self, ip_address):
+        """Block an IP address on all connected switches"""
+        if ip_address in self.blocked_ips:
+            self.logger.info("IP %s is already blocked", ip_address)
+            return
+        
+        self.blocked_ips.add(ip_address)
+        self._save_blocked_ips()
+        
+        blocked_count = 0
+        for dpid, datapath in self.datapaths.items():
+            try:
+                self._install_ip_block_rules(datapath, ip_address)
+                blocked_count += 1
+            except Exception as e:
+                self.logger.error("Failed to block IP %s on DPID=%s: %s", 
+                                ip_address, dpid, e)
+        
+        self.logger.warning("BLOCKED IP %s on %d switches", ip_address, blocked_count)
+
+    def _install_ip_block_rules(self, datapath, ip_address):
+        """Install blocking flow rules for a specific IP on a switch"""
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        
+        match_src = parser.OFPMatch(eth_type=0x0800, ipv4_src=ip_address)
+        actions = []
+        self.add_flow(datapath, 100, match_src, actions)
+        
+        match_dst = parser.OFPMatch(eth_type=0x0800, ipv4_dst=ip_address)
+        self.add_flow(datapath, 100, match_dst, actions)
+        
+        self.logger.info("Installed block rules for %s on DPID=%s", 
+                       ip_address, datapath.id)
 
     def block_ip(self, datapath, ip_address):
         """Block traffic from/to a specific IP address"""
@@ -138,6 +243,9 @@ class SimpleSwitch13(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         
+        # Store datapath for later use
+        self.datapaths[datapath.id] = datapath
+        
         # Install table-miss flow entry
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, 
@@ -178,8 +286,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         
-        # Ignore LLDP
+        # Ignore LLDP and IPv6
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            return
+        if eth.ethertype == ether_types.ETH_TYPE_IPV6:
             return
         
         dpid = datapath.id

@@ -2,11 +2,11 @@
 # Only high-severity alerts (priority 1-2) trigger automatic blocking
 
 # ===== ICMP Rules =====
-# ICMP Flood Detection - triggers after 10 pings from same source
-alert icmp any any -> any any (msg:"ICMP Flood Attack"; threshold: type threshold, track by_src, count 10, seconds 10; classtype:attempted-dos; sid:1000002; rev:2; priority:1;)
+# ICMP Flood Detection - triggers after 20 pings in 5 seconds (realistic DDoS threshold)
+alert icmp any any -> any any (msg:"ICMP Flood Attack Detected"; threshold: type threshold, track by_src, count 20, seconds 5; classtype:attempted-dos; sid:1000002; rev:3; priority:1;)
 
-# ICMP Sweep Detection
-alert icmp any any -> any any (msg:"ICMP Ping Sweep"; threshold: type threshold, track by_src, count 10, seconds 5; classtype:network-scan; sid:1000003; rev:1; priority:2;)
+# ICMP Ping Sweep Detection - scanning multiple hosts
+alert icmp any any -> any any (msg:"ICMP Ping Sweep Detected"; threshold: type threshold, track by_src, count 15, seconds 10; classtype:network-scan; sid:1000003; rev:2; priority:2;)
 
 # ===== Port Scan Detection =====
 # SYN Scan Detection (high severity)
@@ -40,11 +40,14 @@ alert dns any any -> any any (msg:"Possible DNS Tunneling"; dns_query; content:"
 alert udp any 53 -> any any (msg:"Possible DNS Amplification Attack"; threshold: type threshold, track by_src, count 50, seconds 10; classtype:attempted-dos; sid:1000041; rev:1; priority:1;)
 
 # ===== DoS/DDoS Detection =====
-# SYN Flood (high severity)
-alert tcp any any -> any any (msg:"SYN Flood Attack Detected"; flags:S,12; threshold: type both, track by_dst, count 50, seconds 1; classtype:attempted-dos; sid:1000050; rev:1; priority:1;)
+# SYN Flood (high severity) - 30 SYN packets to same destination in 2 seconds
+alert tcp any any -> any any (msg:"SYN Flood Attack Detected"; flags:S,12; threshold: type both, track by_dst, count 30, seconds 2; classtype:attempted-dos; sid:1000050; rev:2; priority:1;)
 
-# UDP Flood
-alert udp any any -> any any (msg:"UDP Flood Attack Detected"; threshold: type both, track by_dst, count 100, seconds 1; classtype:attempted-dos; sid:1000051; rev:1; priority:1;)
+# UDP Flood - 50 UDP packets to same destination in 2 seconds
+alert udp any any -> any any (msg:"UDP Flood Attack Detected"; threshold: type both, track by_dst, count 50, seconds 2; classtype:attempted-dos; sid:1000051; rev:2; priority:1;)
+
+# Connection Flood - Many connections from single source
+alert tcp any any -> any any (msg:"TCP Connection Flood Detected"; flags:S; threshold: type both, track by_src, count 40, seconds 3; classtype:attempted-dos; sid:1000052; rev:1; priority:1;)
 
 # ===== Malware/Exploit Detection =====
 # Suspicious Executable Download
@@ -54,8 +57,8 @@ alert http any any -> any any (msg:"Suspicious EXE Download"; flow:to_client; co
 alert tcp any any -> any any (msg:"Suspicious PowerShell Activity"; content:"powershell"; nocase; content:"-enc"; nocase; classtype:trojan-activity; sid:1000061; rev:1; priority:1;)
 
 # ===== Testing Rules =====
-# Simple test rule for h1 -> h3 traffic
-alert icmp 10.0.1.1 any -> 10.0.1.3 any (msg:"Test: h1 to h3 ICMP"; sid:1000100; rev:1;)
+# Simple test rule for h1 -> h3 traffic (LOW priority - won't trigger blocking)
+alert icmp 10.0.1.1 any -> 10.0.1.3 any (msg:"Test: h1 to h3 ICMP"; sid:1000100; rev:1; priority:3;)
 
-# Test rule for h2 -> h4 traffic
-alert icmp 10.0.2.2 any -> 10.0.2.4 any (msg:"Test: h2 to h4 ICMP"; sid:1000101; rev:1;)
+# Test rule for h2 -> h4 traffic (LOW priority - won't trigger blocking)
+alert icmp 10.0.2.2 any -> 10.0.2.4 any (msg:"Test: h2 to h4 ICMP"; sid:1000101; rev:1; priority:3;)
