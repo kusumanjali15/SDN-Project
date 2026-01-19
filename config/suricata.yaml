@@ -12,6 +12,8 @@ af-packet:
     defrag: yes
     use-mmap: yes
     tpacket-v3: yes
+    cluster-id: 99
+    cluster-type: cluster_flow
 
 outputs:
   - eve-log:
@@ -20,16 +22,24 @@ outputs:
       filename: /tmp/suricata-alerts.json
       types:
         - alert
+        - stats
 
   - fast:
       enabled: yes
       filename: /tmp/suricata-fast.log
+  
+  - stats:
+      enabled: yes
+      filename: /tmp/suricata-stats.log
 
 logging:
   default-log-level: notice
   outputs:
     - console:
+        enabled: no
+    - file:
         enabled: yes
+        filename: /tmp/suricata.log
 
 default-rule-path: /home/kali/sdn-project/config
 rule-files:
