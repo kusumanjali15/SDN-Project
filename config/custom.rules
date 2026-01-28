@@ -2,11 +2,12 @@
 # Only high-severity alerts (priority 1-2) trigger automatic blocking
 
 # ===== ICMP Rules =====
-# ICMP Flood Detection - triggers after 20 pings in 5 seconds (realistic DDoS threshold)
-alert icmp any any -> any any (msg:"ICMP Flood Attack Detected"; threshold: type threshold, track by_src, count 20, seconds 5; classtype:attempted-dos; sid:1000002; rev:3; priority:1;)
+# ICMP Flood Detection - triggers alert when 10+ pings in 5 seconds from same source
+# type:both = alerts once when threshold is reached, then suppresses duplicates
+alert icmp any any -> any any (msg:"ICMP Flood Attack Detected"; threshold: type both, track by_src, count 10, seconds 5; classtype:attempted-dos; sid:1000002; rev:4; priority:1;)
 
 # ICMP Ping Sweep Detection - scanning multiple hosts
-alert icmp any any -> any any (msg:"ICMP Ping Sweep Detected"; threshold: type threshold, track by_src, count 15, seconds 10; classtype:network-scan; sid:1000003; rev:2; priority:2;)
+alert icmp any any -> any any (msg:"ICMP Ping Sweep Detected"; threshold: type both, track by_src, count 8, seconds 10; classtype:network-scan; sid:1000003; rev:3; priority:2;)
 
 # ===== Port Scan Detection =====
 # SYN Scan Detection (high severity)
@@ -56,9 +57,4 @@ alert http any any -> any any (msg:"Suspicious EXE Download"; flow:to_client; co
 # Suspicious PowerShell Activity
 alert tcp any any -> any any (msg:"Suspicious PowerShell Activity"; content:"powershell"; nocase; content:"-enc"; nocase; classtype:trojan-activity; sid:1000061; rev:1; priority:1;)
 
-# ===== Testing Rules =====
-# Simple test rule for h1 -> h3 traffic (LOW priority - won't trigger blocking)
-alert icmp 10.0.1.1 any -> 10.0.1.3 any (msg:"Test: h1 to h3 ICMP"; sid:1000100; rev:1; priority:3;)
 
-# Test rule for h2 -> h4 traffic (LOW priority - won't trigger blocking)
-alert icmp 10.0.2.2 any -> 10.0.2.4 any (msg:"Test: h2 to h4 ICMP"; sid:1000101; rev:1; priority:3;)
