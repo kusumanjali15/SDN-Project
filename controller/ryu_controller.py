@@ -22,7 +22,11 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.blocked_ips_file = '/tmp/blocked_ips.txt'
         self.alert_file = '/tmp/eve.json'
         self.datapaths = {}
-        self.alert_history = set()  # Track processed alerts to avoid duplicates
+        self.alert_history = {}  # Track processed alerts: key=(sid, src_ip) -> last_seen_time
+        self.alert_dedup_window = 60  # Seconds to suppress duplicate alerts for same SID+IP
+        self.last_alert_position_file = '/tmp/alert_position.txt'
+        self.dropped_packet_log = {}  # Track last log time per blocked IP to reduce spam
+        self.dropped_log_interval = 5  # Only log dropped packets every N seconds per IP
         self.stats = {
             'packets_processed': 0,
             'packets_blocked': 0,
@@ -79,12 +83,35 @@ class SimpleSwitch13(app_manager.RyuApp):
         except Exception as e:
             self.logger.error("Error loading blocked IPs: %s", e)
 
+    def _load_last_alert_position(self):
+        """Load last processed position in alert file"""
+        try:
+            if os.path.exists(self.last_alert_position_file):
+                with open(self.last_alert_position_file, 'r') as f:
+                    return int(f.read().strip())
+        except Exception:
+            pass
+        return 0
+    
+    def _save_last_alert_position(self, position):
+        """Save last processed position in alert file"""
+        try:
+            with open(self.last_alert_position_file, 'w') as f:
+                f.write(str(position))
+        except Exception as e:
+            self.logger.debug("Could not save alert position: %s", e)
+
     def _monitor_alerts(self):
         """Background thread that monitors Suricata alert file"""
         self.logger.info("Alert monitor ready - watching: %s", self.alert_file)
         
-        last_position = 0
+        # Load last position - skip already processed alerts on restart
+        last_position = self._load_last_alert_position()
+        if last_position > 0:
+            self.logger.info("Resuming alert monitoring from position %d", last_position)
+        
         last_check = time.time()
+        incomplete_line = ""  # Buffer for incomplete JSON lines
         
         while True:
             try:
@@ -95,34 +122,62 @@ class SimpleSwitch13(app_manager.RyuApp):
                     self.logger.debug("Alert monitor active - Stats: %s", self.stats)
                     last_check = current_time
                 
+                # Clean up old entries from alert_history (older than dedup window)
+                self._cleanup_alert_history(current_time)
+                
                 if os.path.exists(self.alert_file):
                     file_size = os.path.getsize(self.alert_file)
                     
                     if file_size > last_position:
                         with open(self.alert_file, 'r') as f:
                             f.seek(last_position)
+                            content = f.read()
                             
-                            for line in f:
+                            # Combine with any incomplete line from previous read
+                            content = incomplete_line + content
+                            incomplete_line = ""
+                            
+                            lines = content.split('\n')
+                            
+                            # If content doesn't end with newline, last line may be incomplete
+                            if not content.endswith('\n') and lines:
+                                incomplete_line = lines[-1]
+                                lines = lines[:-1]
+                            
+                            for line in lines:
                                 line = line.strip()
                                 if line:
                                     try:
                                         alert_data = json.loads(line)
                                         if alert_data.get('event_type') == 'alert':
                                             self._process_alert(alert_data)
-                                    except json.JSONDecodeError as e:
-                                        self.logger.warning("Failed to parse alert JSON: %s", e)
+                                    except json.JSONDecodeError:
+                                        # Silently skip malformed lines
+                                        pass
                             
-                            last_position = f.tell()
+                            # Update position (minus incomplete line length)
+                            last_position = f.tell() - len(incomplete_line.encode('utf-8'))
+                            if not incomplete_line:  # Only save if we processed complete lines
+                                self._save_last_alert_position(last_position)
                     
                     elif file_size < last_position:
                         self.logger.info("Alert file was rotated, resetting position")
                         last_position = 0
+                        incomplete_line = ""
+                        self._save_last_alert_position(0)
                 
                 time.sleep(0.5)  # Check twice per second for faster response
                 
             except Exception as e:
                 self.logger.error("Error monitoring alerts: %s", e)
                 time.sleep(5)
+    
+    def _cleanup_alert_history(self, current_time):
+        """Remove old entries from alert history"""
+        expired_keys = [key for key, timestamp in self.alert_history.items() 
+                       if current_time - timestamp > self.alert_dedup_window * 2]
+        for key in expired_keys:
+            del self.alert_history[key]
 
     def _process_alert(self, alert_data):
         """Process a single Suricata alert and block IPs if necessary"""
@@ -134,19 +189,25 @@ class SimpleSwitch13(app_manager.RyuApp):
             signature = alert.get('signature', 'Unknown')
             sid = alert.get('signature_id', 0)
             timestamp = alert_data.get('timestamp', '')
+            current_time = time.time()
             
-            # Create unique alert ID to avoid duplicate processing
-            alert_id = f"{timestamp}_{sid}_{src_ip}_{dst_ip}"
+            # EARLY EXIT: Skip alerts for already-blocked IPs (no logging spam)
+            if src_ip in self.blocked_ips:
+                self.logger.debug("Ignoring alert for already-blocked IP: %s (SID: %s)", src_ip, sid)
+                return
             
-            if alert_id in self.alert_history:
-                return  # Already processed
+            # Deduplication: Check if we've seen this SID+IP combination recently
+            alert_key = (sid, src_ip)
+            if alert_key in self.alert_history:
+                last_seen = self.alert_history[alert_key]
+                if current_time - last_seen < self.alert_dedup_window:
+                    self.logger.debug("Suppressing duplicate alert SID=%s for %s (seen %.1fs ago)", 
+                                     sid, src_ip, current_time - last_seen)
+                    return
             
-            self.alert_history.add(alert_id)
+            # Record this alert in history
+            self.alert_history[alert_key] = current_time
             self.stats['alerts_processed'] += 1
-            
-            # Keep alert history reasonable size
-            if len(self.alert_history) > 1000:
-                self.alert_history.clear()
             
             self.logger.info("=" * 60)
             self.logger.info("ALERT DETECTED")
@@ -274,7 +335,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.warning("Switch disconnected: DPID=%s", datapath.id)
                 del self.datapaths[datapath.id]
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None, idle_timeout=0, hard_timeout=0):
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None, idle_timeout=0, hard_timeout=0, log_flow=True):
         """Add a flow entry to switch"""
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -302,10 +363,11 @@ class SimpleSwitch13(app_manager.RyuApp):
             )
         datapath.send_msg(mod)
         
-        # Log flow installation (verbose output)
-        action_str = "DROP" if not actions else ", ".join([str(a) for a in actions])
-        self.logger.info("[FLOW] DPID=%s priority=%d match=%s actions=[%s]",
-                        datapath.id, priority, match, action_str)
+        # Log flow installation only for IPv4 packets (or blocking rules)
+        if log_flow:
+            action_str = "DROP" if not actions else ", ".join([str(a) for a in actions])
+            self.logger.info("[FLOW] DPID=%s priority=%d actions=[%s]",
+                            datapath.id, priority, action_str)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -318,14 +380,11 @@ class SimpleSwitch13(app_manager.RyuApp):
             
             pkt = packet.Packet(msg.data)
             eth = pkt.get_protocols(ethernet.ethernet)[0]
-            
-            self.logger.info("[PKT_IN] DPID=%s in_port=%s src=%s dst=%s", 
-                           datapath.id, in_port, eth.src, eth.dst)
         except Exception as e:
             self.logger.error("Error in packet_in (parsing): %s", e, exc_info=True)
             return
         
-        # Ignore LLDP and IPv6
+        # Ignore LLDP and IPv6 (silently)
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
         if eth.ethertype == ether_types.ETH_TYPE_IPV6:
@@ -343,19 +402,29 @@ class SimpleSwitch13(app_manager.RyuApp):
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
             
-            # Log with IP addresses for visibility
-            self.logger.info("[IPv4] DPID=%s %s → %s (MAC: %s → %s)",
-                           dpid, src_ip, dst_ip, src, dst)
-            
-            # Drop packets from or to blocked IPs
+            # Drop packets from or to blocked IPs (with rate-limited logging)
+            current_time = time.time()
             if src_ip in self.blocked_ips:
                 self.stats['packets_blocked'] += 1
-                self.logger.warning("⛔ Dropped packet from blocked IP: %s", src_ip)
+                # Only log occasionally to avoid spam
+                if src_ip not in self.dropped_packet_log or \
+                   current_time - self.dropped_packet_log[src_ip] > self.dropped_log_interval:
+                    self.logger.warning("⛔ Dropping packets from blocked IP: %s (count: %d)", 
+                                       src_ip, self.stats['packets_blocked'])
+                    self.dropped_packet_log[src_ip] = current_time
                 return
             if dst_ip in self.blocked_ips:
                 self.stats['packets_blocked'] += 1
-                self.logger.warning("⛔ Dropped packet to blocked IP: %s", dst_ip)
+                if dst_ip not in self.dropped_packet_log or \
+                   current_time - self.dropped_packet_log[dst_ip] > self.dropped_log_interval:
+                    self.logger.warning("⛔ Dropping packets to blocked IP: %s (count: %d)", 
+                                       dst_ip, self.stats['packets_blocked'])
+                    self.dropped_packet_log[dst_ip] = current_time
                 return
+            
+            # Log IPv4 packets with IP addresses (only non-blocked traffic)
+            self.logger.debug("[IPv4] DPID=%s %s → %s (MAC: %s → %s)",
+                           dpid, src_ip, dst_ip, src, dst)
         
         # Don't process packets from Suricata to avoid loops
         if dpid in self.suricata_port and in_port == self.suricata_port[dpid]:
@@ -383,20 +452,17 @@ class SimpleSwitch13(app_manager.RyuApp):
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
             
-            # Log learning switch flow installation with IP if available
-            mirror_info = " +mirror" if (dpid == 1 and dpid in self.suricata_port) else ""
+            # Only log LEARN for IPv4 packets (cleaner output)
             if ip_pkt:
-                self.logger.info("[LEARN] DPID=%s %s→%s (%s→%s) port %s→%s%s",
-                               dpid, ip_pkt.src, ip_pkt.dst, src, dst, in_port, out_port, mirror_info)
-            else:
-                self.logger.info("[LEARN] DPID=%s %s→%s port %s→%s%s",
-                               dpid, src, dst, in_port, out_port, mirror_info)
+                mirror_info = " +mirror" if (dpid == 1 and dpid in self.suricata_port) else ""
+                self.logger.info("[LEARN] DPID=%s %s → %s port %s→%s%s",
+                               dpid, ip_pkt.src, ip_pkt.dst, in_port, out_port, mirror_info)
             
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 10, match, actions, msg.buffer_id, idle_timeout=30)
+                self.add_flow(datapath, 10, match, actions, msg.buffer_id, idle_timeout=30, log_flow=ip_pkt is not None)
                 return
             else:
-                self.add_flow(datapath, 10, match, actions, idle_timeout=30)
+                self.add_flow(datapath, 10, match, actions, idle_timeout=30, log_flow=ip_pkt is not None)
         
         # Send packet out
         data = None

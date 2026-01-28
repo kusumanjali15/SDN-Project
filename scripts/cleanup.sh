@@ -1,5 +1,7 @@
 #!/bin/bash
 # Cleanup all SDN components
+# Usage: ./cleanup.sh [--full]
+#   --full: Also clear blocked IPs list (fresh start)
 
 echo "=== Cleaning up ==="
 
@@ -15,7 +17,13 @@ sudo ovs-vsctl del-port s1 suricata-tap 2>/dev/null
 sudo ip link delete suricata-tap 2>/dev/null
 
 # Clean temp files
-sudo rm -f /tmp/suricata_port.txt /tmp/suricata-alerts.json /tmp/suricata-fast.log
+sudo rm -f /tmp/suricata_port.txt /tmp/suricata-alerts.json /tmp/suricata-fast.log /tmp/eve.json /tmp/alert_position.txt
+
+# Full cleanup includes blocked IPs
+if [ "$1" == "--full" ]; then
+    echo "Full cleanup: clearing blocked IPs"
+    sudo rm -f /tmp/blocked_ips.txt
+fi
 
 # Restart OVS
 sudo systemctl restart openvswitch-switch 2>/dev/null
