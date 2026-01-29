@@ -1,0 +1,814 @@
+[
+    {
+        "id": "5eaf4de03ec59a24",
+        "type": "tab",
+        "label": "Home-1 (Multi-Room)",
+        "info": "Smart home with room-based presence and distributed IoT devices"
+    },
+    {
+        "id": "c0e2ec2e0ab5e5bd",
+        "type": "group",
+        "z": "5eaf4de03ec59a24",
+        "name": "LIVING - ROOM",
+        "style": {
+            "stroke": "#777777",
+            "fill": "#d1d1d1",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "e983e203274a29e0",
+            "b6897f6348b3c015",
+            "5c50121c5561440c",
+            "79a26e7ce938655b"
+        ],
+        "x": 94,
+        "y": 139,
+        "w": 492,
+        "h": 122
+    },
+    {
+        "id": "b58b75e93ab138e1",
+        "type": "group",
+        "z": "5eaf4de03ec59a24",
+        "name": "BEDROOM",
+        "style": {
+            "stroke": "#777777",
+            "fill": "#d1d1d1",
+            "label": true,
+            "color": "#000000",
+            "label-position": "n"
+        },
+        "nodes": [
+            "3874aaf51f1f55b1",
+            "76d4ee85be5b977e"
+        ],
+        "x": 94,
+        "y": 299,
+        "w": 552,
+        "h": 82
+    },
+    {
+        "id": "70f81a76b30d39e8",
+        "type": "group",
+        "z": "5eaf4de03ec59a24",
+        "name": "KITCHEN",
+        "style": {
+            "stroke": "#777777",
+            "fill": "#d1d1d1",
+            "label": true,
+            "color": "#000000",
+            "label-position": "n"
+        },
+        "nodes": [
+            "ad7cec4afa48b7af",
+            "8bd11271d6da2586",
+            "c3c1eadafd856b53",
+            "fdc45a63af1c4b63"
+        ],
+        "x": 94,
+        "y": 419,
+        "w": 512,
+        "h": 142
+    },
+    {
+        "id": "8b403334ec6b6c48",
+        "type": "group",
+        "z": "5eaf4de03ec59a24",
+        "name": "OUTDOORS",
+        "style": {
+            "stroke": "#ff0000",
+            "fill": "#ffbfbf",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "3c913888866671df",
+            "97a5aa4bf850ebcb"
+        ],
+        "x": 94,
+        "y": 599,
+        "w": 472,
+        "h": 82
+    },
+    {
+        "id": "f97dce9e465551ae",
+        "type": "group",
+        "z": "5eaf4de03ec59a24",
+        "name": "HUMAN",
+        "style": {
+            "stroke": "#ffC000",
+            "fill": "#ffefbf",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "f89dc126cde6c112",
+            "77b7e0ae370a8bc0",
+            "0d86046b21fb280d"
+        ],
+        "x": 674,
+        "y": 19,
+        "w": 832,
+        "h": 82
+    },
+    {
+        "id": "ab2410acf9b562a2",
+        "type": "group",
+        "z": "5eaf4de03ec59a24",
+        "name": "DASHBOARD ",
+        "style": {
+            "stroke": "#6f2fa0",
+            "fill": "#bfc7d7",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "e9203627726df0d0",
+            "edcc1fa6db579230",
+            "a0229c033a340e13",
+            "a9a1014b82ccbd60",
+            "0f5953ee685c29a4",
+            "fd6418d01e645c5d",
+            "18cfba469f69b665"
+        ],
+        "x": 844,
+        "y": 799,
+        "w": 532,
+        "h": 342
+    },
+    {
+        "id": "f89dc126cde6c112",
+        "type": "inject",
+        "z": "5eaf4de03ec59a24",
+        "g": "f97dce9e465551ae",
+        "name": "Presence Simulator",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "15",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 820,
+        "y": 60,
+        "wires": [
+            [
+                "77b7e0ae370a8bc0"
+            ]
+        ]
+    },
+    {
+        "id": "77b7e0ae370a8bc0",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "f97dce9e465551ae",
+        "name": "Human Presence Context",
+        "func": "const presence = {\n  living_room: Math.random() > 0.4,\n  bedroom: Math.random() > 0.6,\n  kitchen: Math.random() > 0.5,\n  external: Math.random() > 0.8\n};\n\nflow.set('presence', presence);\n\n\nmsg.payload = presence;\nmsg.topic = \"presence_update\";\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1130,
+        "y": 60,
+        "wires": [
+            [
+                "0d86046b21fb280d"
+            ]
+        ]
+    },
+    {
+        "id": "e983e203274a29e0",
+        "type": "inject",
+        "z": "5eaf4de03ec59a24",
+        "g": "c0e2ec2e0ab5e5bd",
+        "name": "LR Smart Light",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "6",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 220,
+        "y": 180,
+        "wires": [
+            [
+                "b6897f6348b3c015"
+            ]
+        ],
+        "icon": "font-awesome/fa-lightbulb-o"
+    },
+    {
+        "id": "b6897f6348b3c015",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "c0e2ec2e0ab5e5bd",
+        "name": "LR Smart Light Device",
+        "func": "const presence = flow.get(\"presence\") || {};\nconst isPresent = presence.living_room === true;\n\nmsg.payload = {\n    home_id: \"home_1\",\n    room: \"living_room\",\n    device_type: \"smart_light\",\n    device_id: \"lr_light_01\",\n    value: isPresent ? \"ON\" : \"OFF\",\n    brightness: isPresent ? Math.floor(60 + Math.random() * 40) : 0,\n    timestamp: Date.now()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 180,
+        "wires": [
+            [
+                "8f46d813b1f115a9"
+            ]
+        ]
+    },
+    {
+        "id": "5c50121c5561440c",
+        "type": "inject",
+        "z": "5eaf4de03ec59a24",
+        "g": "c0e2ec2e0ab5e5bd",
+        "name": "LR Smart TV",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 220,
+        "y": 220,
+        "wires": [
+            [
+                "79a26e7ce938655b"
+            ]
+        ],
+        "icon": "font-awesome/fa-tv"
+    },
+    {
+        "id": "79a26e7ce938655b",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "c0e2ec2e0ab5e5bd",
+        "name": "LR Smart TV Device",
+        "func": "const presence = flow.get(\"presence\") || {};\nconst isPresent = presence.living_room === true;\n\n\nconst isOn = isPresent && Math.random() > 0.4;\n\nmsg.payload = {\n  home_id: \"home_1\",\n  room: \"living_room\",\n  device_type: \"smart_tv\",\n  device_id: \"lr_tv_01\",\n  value: isOn ? \"ON\" : \"OFF\",\n  app: isOn ? [\"Netflix\", \"YouTube\", \"Prime\", \"TV\"][Math.floor(Math.random() * 4)] : \"OFF\",\n  power_watt: isOn ? Math.floor(80 + Math.random() * 70) : 0,\n  timestamp: Date.now()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 220,
+        "wires": [
+            [
+                "8f46d813b1f115a9"
+            ]
+        ]
+    },
+    {
+        "id": "3874aaf51f1f55b1",
+        "type": "inject",
+        "z": "5eaf4de03ec59a24",
+        "g": "b58b75e93ab138e1",
+        "name": "Bedroom Smart AC",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "8",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 240,
+        "y": 340,
+        "wires": [
+            [
+                "76d4ee85be5b977e"
+            ]
+        ],
+        "icon": "font-awesome/fa-tachometer"
+    },
+    {
+        "id": "76d4ee85be5b977e",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "b58b75e93ab138e1",
+        "name": "Bedroom Smart AC Device",
+        "func": "const presence = flow.get(\"presence\") || {};\nconst isPresent = presence.bedroom === true;\n\n// keep temperature state\nlet temp = context.get(\"temp\");\nif (temp === undefined) {\n  temp = 26 + Math.random() * 4; // initial temp 26–30\n}\n\n// temperature drift\ntemp += isPresent ? (Math.random() * 0.6 - 0.2) : (Math.random() * 0.4 - 0.5);\n\n// clamp\ntemp = Math.max(20, Math.min(32, temp));\ncontext.set(\"temp\", temp);\n\n// AC logic\nconst acOn = isPresent && temp > 27;\n\nmsg.payload = {\n  home_id: \"home_1\",\n  room: \"bedroom\",\n  device_type: \"smart_ac\",\n  device_id: \"bedroom_ac_01\",\n  value: acOn ? \"ON\" : \"OFF\",\n  temperature: temp.toFixed(1),\n  target: acOn ? 24 : null,\n  power_watt: acOn ? Math.floor(900 + Math.random() * 300) : 0,\n  timestamp: Date.now()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 340,
+        "wires": [
+            [
+                "8f46d813b1f115a9"
+            ]
+        ]
+    },
+    {
+        "id": "ad7cec4afa48b7af",
+        "type": "inject",
+        "z": "5eaf4de03ec59a24",
+        "g": "70f81a76b30d39e8",
+        "name": "Kitchen Light",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "7",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 220,
+        "y": 460,
+        "wires": [
+            [
+                "8bd11271d6da2586"
+            ]
+        ],
+        "icon": "font-awesome/fa-lightbulb-o"
+    },
+    {
+        "id": "8bd11271d6da2586",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "70f81a76b30d39e8",
+        "name": "Kitchen Smart Light",
+        "func": "const presence = flow.get(\"presence\") || {};\nconst isPresent = presence.kitchen === true;\n\nmsg.payload = {\n  home_id: \"home_1\",\n  room: \"kitchen\",\n  device_type: \"smart_light\",\n  device_id: \"kitchen_light_01\",\n  value: isPresent ? \"ON\" : \"OFF\",\n  brightness: isPresent ? Math.floor(70 + Math.random() * 30) : 0,\n  timestamp: Date.now()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 460,
+        "wires": [
+            [
+                "8f46d813b1f115a9"
+            ]
+        ]
+    },
+    {
+        "id": "c3c1eadafd856b53",
+        "type": "inject",
+        "z": "5eaf4de03ec59a24",
+        "g": "70f81a76b30d39e8",
+        "name": "Smart Fridge",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "20",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 220,
+        "y": 520,
+        "wires": [
+            [
+                "fdc45a63af1c4b63"
+            ]
+        ],
+        "icon": "node-red/mongodb.svg"
+    },
+    {
+        "id": "fdc45a63af1c4b63",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "70f81a76b30d39e8",
+        "name": "Smart Fridge Telemetry",
+        "func": "// persistent internal temperature\nlet temp = context.get(\"temp\");\nif (temp === undefined) {\n  temp = 3 + Math.random(); // 3–4 °C\n}\n\n// small fluctuation\ntemp += Math.random() * 0.2 - 0.1;\ntemp = Math.max(2, Math.min(5, temp));\ncontext.set(\"temp\", temp);\n\n// occasional door open\nconst doorOpen = Math.random() > 0.92;\n\nmsg.payload = {\n  home_id: \"home_1\",\n  room: \"kitchen\",\n  device_type: \"smart_fridge\",\n  device_id: \"fridge_01\",\n  temperature: temp.toFixed(1),\n  door: doorOpen ? \"OPEN\" : \"CLOSED\",\n  power_watt: Math.floor(120 + Math.random() * 40),\n  timestamp: Date.now()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 520,
+        "wires": [
+            [
+                "8f46d813b1f115a9"
+            ]
+        ]
+    },
+    {
+        "id": "3c913888866671df",
+        "type": "inject",
+        "z": "5eaf4de03ec59a24",
+        "g": "8b403334ec6b6c48",
+        "name": "Security Camera",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "12",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 230,
+        "y": 640,
+        "wires": [
+            [
+                "97a5aa4bf850ebcb"
+            ]
+        ],
+        "icon": "font-awesome/fa-camera"
+    },
+    {
+        "id": "97a5aa4bf850ebcb",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "8b403334ec6b6c48",
+        "name": "Outdoor Camera",
+        "func": "const motion = Math.random() > 0.85;\n\nmsg.payload = {\n  home_id: \"home_1\",\n  room: \"outdoor\",\n  device_type: \"security_camera\",\n  device_id: \"cam_outdoor_01\",\n  motion_detected: motion,\n  event: motion ? \"MOTION\" : \"IDLE\",\n  snapshot: motion ? \"captured\" : \"none\",\n  timestamp: Date.now()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 640,
+        "wires": [
+            [
+                "8f46d813b1f115a9"
+            ]
+        ]
+    },
+    {
+        "id": "8f46d813b1f115a9",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "name": "Home-1 Aggregator",
+        "func": "msg.topic = \"home_1\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 970,
+        "y": 380,
+        "wires": [
+            [
+                "55352d531df0ba02",
+                "12c8f12c41e8325e",
+                "41799ff032c23138"
+            ]
+        ]
+    },
+    {
+        "id": "12c8f12c41e8325e",
+        "type": "link out",
+        "z": "5eaf4de03ec59a24",
+        "name": "To IoT Gateway",
+        "mode": "link",
+        "links": [
+            "soc_in_h1"
+        ],
+        "x": 1270,
+        "y": 540,
+        "wires": [],
+        "l": true
+    },
+    {
+        "id": "55352d531df0ba02",
+        "type": "link out",
+        "z": "5eaf4de03ec59a24",
+        "name": "HOME1- BUS OUT",
+        "mode": "link",
+        "links": [
+            "e9203627726df0d0"
+        ],
+        "x": 990,
+        "y": 540,
+        "wires": [],
+        "l": true
+    },
+    {
+        "id": "e9203627726df0d0",
+        "type": "link in",
+        "z": "5eaf4de03ec59a24",
+        "g": "ab2410acf9b562a2",
+        "name": "link in 2",
+        "links": [
+            "55352d531df0ba02"
+        ],
+        "x": 885,
+        "y": 940,
+        "wires": [
+            [
+                "a9a1014b82ccbd60",
+                "0f5953ee685c29a4",
+                "fd6418d01e645c5d"
+            ]
+        ]
+    },
+    {
+        "id": "edcc1fa6db579230",
+        "type": "ui_gauge",
+        "z": "5eaf4de03ec59a24",
+        "g": "ab2410acf9b562a2",
+        "name": "",
+        "group": "e9a78a20bc6286ae",
+        "order": 0,
+        "width": "6",
+        "height": "4",
+        "gtype": "gage",
+        "title": "active-devices",
+        "label": "units",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "6",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1270,
+        "y": 840,
+        "wires": []
+    },
+    {
+        "id": "a0229c033a340e13",
+        "type": "ui_text",
+        "z": "5eaf4de03ec59a24",
+        "g": "ab2410acf9b562a2",
+        "group": "e9a78a20bc6286ae",
+        "order": 1,
+        "width": "12",
+        "height": "2",
+        "name": "",
+        "label": "last-event",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 1230,
+        "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "a9a1014b82ccbd60",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "ab2410acf9b562a2",
+        "name": "count active devices",
+        "func": "// persistent state of devices\nlet devices = flow.get(\"home2_devices\") || {};\n\n// extract event\nconst e = msg.payload;\nif (!e || !e.device_id) return null;\n\n// update device state\ndevices[e.device_id] = (e.value === \"ON\");\n\n// save state\nflow.set(\"home2_devices\", devices);\n\n// count active devices\nconst activeCount = Object.values(devices).filter(v => v === true).length;\n\nmsg.payload = activeCount;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1090,
+        "y": 940,
+        "wires": [
+            [
+                "edcc1fa6db579230"
+            ]
+        ]
+    },
+    {
+        "id": "0f5953ee685c29a4",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "ab2410acf9b562a2",
+        "name": "last-event",
+        "func": "const e = msg.payload || {};\n\nconst room = e.room || \"unknown\";\nconst device = e.device_type || \"device\";\nconst id = e.device_id || \"\";\nconst value =\n    e.value ??\n    (e.locked !== undefined ? (e.locked ? \"LOCKED\" : \"UNLOCKED\") :\n        (e.motion_detected !== undefined ? (e.motion_detected ? \"MOTION\" : \"CLEAR\") :\n            \"—\"));\n\nmsg.payload = `${room} → ${device} (${id}) = ${value}`;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1070,
+        "y": 1000,
+        "wires": [
+            [
+                "a0229c033a340e13"
+            ]
+        ]
+    },
+    {
+        "id": "fd6418d01e645c5d",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "g": "ab2410acf9b562a2",
+        "name": "security filter",
+        "func": "const e = msg.payload || {};\n\nlet status = \"CLEAR\";\nlet color = \"green\";\n\nif (\n    e.device_type?.includes(\"door\") &&\n    e.locked === false\n) {\n    status = \"ALERT\";\n    color = \"red\";\n}\n\nif (\n    e.motion_detected === true\n) {\n    status = \"ALERT\";\n    color = \"red\";\n}\n\n\n\nmsg.payload = status;\nmsg.color = color;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 1100,
+        "wires": [
+            [
+                "18cfba469f69b665"
+            ]
+        ]
+    },
+    {
+        "id": "18cfba469f69b665",
+        "type": "ui_template",
+        "z": "5eaf4de03ec59a24",
+        "g": "ab2410acf9b562a2",
+        "group": "e9a78a20bc6286ae",
+        "name": "",
+        "order": 2,
+        "width": "15",
+        "height": "1",
+        "format": "<div style=\"\n  font-size: 26px;\n  font-weight: bold;\n  color: {{msg.payload === 'ALERT' ? '#e53935' : '#43a047'}};\n\">\n    SECURITY STATUS: {{msg.payload}}\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1270,
+        "y": 1100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "0d86046b21fb280d",
+        "type": "ui_template",
+        "z": "5eaf4de03ec59a24",
+        "g": "f97dce9e465551ae",
+        "group": "e9a78a20bc6286ae",
+        "name": "Presence snapshot",
+        "order": 3,
+        "width": "6",
+        "height": "4",
+        "format": "<div style=\"display:flex; justify-content:space-between; font-size:16px;\">\n\n    <div>\n        <b>Presence Snapshot</b><br><br>\n\n        <span style=\"color: {{msg.payload.living_room ? '#43a047' : '#9e9e9e'}};\">\n      ■ Living Room\n    </span><br>\n\n        <span style=\"color: {{msg.payload.bedroom ? '#43a047' : '#9e9e9e'}};\">\n      ■ Bedroom\n    </span><br>\n\n        <span style=\"color: {{msg.payload.work_office ? '#43a047' : '#9e9e9e'}};\">\n      ■ Work Office\n    </span><br>\n\n        <span style=\"color: {{msg.payload.outdoor ? '#43a047' : '#9e9e9e'}};\">\n      ■ Outdoors\n    </span>\n\n    </div>\n\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1390,
+        "y": 60,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "31df12ffffe5dda9",
+        "type": "tcp out",
+        "z": "5eaf4de03ec59a24",
+        "name": "TCP-OUT",
+        "host": "172.16.3.2",
+        "port": "7001",
+        "beserver": "client",
+        "base64": false,
+        "end": false,
+        "tls": "",
+        "x": 1070,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "41799ff032c23138",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "name": "Network Dispatcher",
+        "func": "// Home-1 Network Dispatcher\nmsg.ip = \"10.0.1.1\";     // h1\nmsg.port = 7001;\n\nmsg.payload = JSON.stringify(msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 280,
+        "wires": [
+            [
+                "31df12ffffe5dda9",
+                "2931fe3d50ad52d0"
+            ]
+        ]
+    },
+    {
+        "id": "2931fe3d50ad52d0",
+        "type": "debug",
+        "z": "5eaf4de03ec59a24",
+        "name": "debug 4",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1290,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "e9a78a20bc6286ae",
+        "type": "ui_group",
+        "name": "Overview (Status Wall)",
+        "tab": "2e563970eb4fa6ae",
+        "order": 1,
+        "disp": true,
+        "width": "16",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "2e563970eb4fa6ae",
+        "type": "ui_tab",
+        "name": "home-1",
+        "icon": "dashboard",
+        "order": 2,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "bab54fd2c852c180",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6"
+        }
+    }
+]

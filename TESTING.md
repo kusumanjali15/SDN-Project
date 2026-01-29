@@ -50,13 +50,24 @@ mininet> h1 ping -c 3 h2
 
 ### 3. ICMP Flood Detection (Trigger IDS Alert)
 ```
-mininet> h1 ping -c 15 h3
+mininet> h1 ping -c 25 -i 0.1 h3
 ```
 **What happens:**
-- 15 pings sent rapidly
-- Suricata detects >10 pings in 10 seconds
+- 25 pings sent rapidly (0.1 sec interval = very fast)
+- Suricata detects >20 pings in 5 seconds
 - Alert generated with SID 1000002 (priority 1)
 - Alert saved to `/tmp/suricata-alerts.json`
+- **Controller automatically blocks h1's IP (10.0.1.1)**
+
+**Expected Controller Output:**
+```
+Alert detected: SID=1000002, Priority=1, SrcIP=10.0.1.1, Signature=ICMP Flood Attack Detected
+HIGH PRIORITY ALERT (Priority 1) from 10.0.1.1 - Initiating block
+Installed block rules for 10.0.1.1 on DPID=1
+Installed block rules for 10.0.1.1 on DPID=2
+...
+BLOCKED IP 10.0.1.1 on 5 switches
+```
 
 **Monitor alerts in Terminal 4:**
 ```bash
