@@ -6,6 +6,35 @@
         "info": "Smart home with room-based presence and distributed IoT devices"
     },
     {
+        "id": "tab_home2",
+        "type": "tab",
+        "label": "Home-2 (Multi-Room)",
+        "disabled": false,
+        "info": "Second smart home with different rooms and devices but identical architecture"
+    },
+    {
+        "id": "tab_home3",
+        "type": "tab",
+        "label": "Home-3 (Short-Term Rental)",
+        "disabled": false,
+        "info": "Guest house with transient presence and access-focused devices"
+    },
+    {
+        "id": "tab_soc",
+        "type": "tab",
+        "label": "SOC Office (Neighborhood)",
+        "disabled": false,
+        "info": "Neighborhood SOC Office: Intake -> Normalize -> Classify -> Dispatch, plus SOC Dashboard"
+    },
+    {
+        "id": "f92137337b69bb20",
+        "type": "tab",
+        "label": "Flow 2",
+        "disabled": true,
+        "info": "",
+        "env": []
+    },
+    {
         "id": "c0e2ec2e0ab5e5bd",
         "type": "group",
         "z": "5eaf4de03ec59a24",
@@ -116,6 +145,375 @@
         "h": 82
     },
     {
+        "id": "a55da16041019a4d",
+        "type": "group",
+        "z": "tab_home2",
+        "name": "LIVING-ROOM",
+        "style": {
+            "stroke": "#777777",
+            "fill": "#d1d1d1",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "lr2_light_in",
+            "lr2_light_fn"
+        ],
+        "x": 94,
+        "y": 179,
+        "w": 532,
+        "h": 82
+    },
+    {
+        "id": "b80e8792982882ad",
+        "type": "group",
+        "z": "tab_home2",
+        "name": "BEDROOM",
+        "style": {
+            "stroke": "#777777",
+            "fill": "#d1d1d1",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "lr2_speaker_in",
+            "lr2_speaker_fn",
+            "br2_heater_in",
+            "br2_heater_fn"
+        ],
+        "x": 94,
+        "y": 299,
+        "w": 512,
+        "h": 182
+    },
+    {
+        "id": "915f07ee615ee6ed",
+        "type": "group",
+        "z": "tab_home2",
+        "name": "WORK-OFFICE",
+        "style": {
+            "stroke": "#777777",
+            "fill": "#d1d1d1",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "office_lamp_in",
+            "office_lamp_fn",
+            "office_pc_in",
+            "office_pc_fn"
+        ],
+        "x": 94,
+        "y": 519,
+        "w": 512,
+        "h": 142
+    },
+    {
+        "id": "785a288261a9032e",
+        "type": "group",
+        "z": "tab_home2",
+        "name": "OUTDOORS",
+        "style": {
+            "stroke": "#ff0000",
+            "fill": "#ffbfbf",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "door_in",
+            "door_fn"
+        ],
+        "x": 94,
+        "y": 699,
+        "w": 492,
+        "h": 82
+    },
+    {
+        "id": "364e4f6bf1d33ecb",
+        "type": "group",
+        "z": "tab_home2",
+        "name": "HUMAN",
+        "style": {
+            "stroke": "#ffC000",
+            "fill": "#ffefbf",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "presence2_inject",
+            "presence2_fn",
+            "2d3008e0225c0620"
+        ],
+        "x": 644,
+        "y": 59,
+        "w": 802,
+        "h": 82
+    },
+    {
+        "id": "76812db2c2f3a666",
+        "type": "group",
+        "z": "tab_home3",
+        "name": "HUMAN",
+        "style": {
+            "stroke": "#ffC000",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000",
+            "fill": "#ffefbf"
+        },
+        "nodes": [
+            "presence3_inject",
+            "presence3_fn",
+            "38551269c752558c"
+        ],
+        "x": 834,
+        "y": 59,
+        "w": 812,
+        "h": 82
+    },
+    {
+        "id": "d068336f9f7d16ac",
+        "type": "group",
+        "z": "tab_home3",
+        "name": "LIVING-ROOM",
+        "style": {
+            "label": true,
+            "stroke": "#777777",
+            "fill": "#d1d1d1",
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "lr3_light_in",
+            "lr3_light_fn",
+            "lr3_tv_in",
+            "lr3_tv_fn"
+        ],
+        "x": 274,
+        "y": 239,
+        "w": 542,
+        "h": 132
+    },
+    {
+        "id": "9a62e92fb8644a81",
+        "type": "group",
+        "z": "tab_home3",
+        "name": "BEDROOM",
+        "style": {
+            "label": true,
+            "label-position": "n",
+            "color": "#000000",
+            "stroke": "#777777",
+            "fill": "#d1d1d1"
+        },
+        "nodes": [
+            "br3_ac_in",
+            "br3_ac_fn",
+            "bath_heater_in",
+            "bath_heater_fn"
+        ],
+        "x": 254,
+        "y": 399,
+        "w": 562,
+        "h": 152
+    },
+    {
+        "id": "60f4190abbcccb3f",
+        "type": "group",
+        "z": "tab_home3",
+        "name": "OUTDOORS",
+        "style": {
+            "stroke": "#ff0000",
+            "fill": "#ffbfbf",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "lock3_in",
+            "lock3_fn"
+        ],
+        "x": 254,
+        "y": 599,
+        "w": 532,
+        "h": 82
+    },
+    {
+        "id": "b57ee812f335d8b1",
+        "type": "group",
+        "z": "tab_soc",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "c_room_intake",
+            "soc_in_h1",
+            "soc_in_h2",
+            "soc_in_h3",
+            "soc_stamp_source"
+        ],
+        "x": -26,
+        "y": 59,
+        "w": 512,
+        "h": 262
+    },
+    {
+        "id": "8da138d49ac1d1d6",
+        "type": "group",
+        "z": "tab_soc",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "soc_normalize",
+            "soc_metrics_tap"
+        ],
+        "x": 534,
+        "y": 159,
+        "w": 302,
+        "h": 189.5
+    },
+    {
+        "id": "646533748180e86c",
+        "type": "group",
+        "z": "tab_soc",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "soc_classify",
+            "soc_dashboard_tap"
+        ],
+        "x": 874,
+        "y": 159,
+        "w": 332,
+        "h": 182
+    },
+    {
+        "id": "a4f59552ccdf4055",
+        "type": "group",
+        "z": "tab_soc",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "soc_to_dispatch",
+            "soc_tcp_out",
+            "d260aba82e67835a",
+            "fbbd70f6d7695e77"
+        ],
+        "x": 1274,
+        "y": 159,
+        "w": 682,
+        "h": 282
+    },
+    {
+        "id": "fad336ca632672bf",
+        "type": "group",
+        "z": "tab_soc",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "soc_last_event",
+            "soc_gauge_access",
+            "soc_gauge_env",
+            "soc_gauge_usage",
+            "soc_chart_per_home"
+        ],
+        "x": 974,
+        "y": 399,
+        "w": 652,
+        "h": 202
+    },
+    {
+        "id": "125ba30770acd240",
+        "type": "group",
+        "z": "tab_home2",
+        "name": "DASHBOARD ",
+        "style": {
+            "stroke": "#6f2fa0",
+            "fill": "#bfc7d7",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "bf11bb155d6f67ef",
+            "1cb3b09178e1752b",
+            "859bec6fb1cce2e2",
+            "0cb71fbd1e55f8e1",
+            "7d44e23f28a287cb",
+            "dbc2641008693e6f",
+            "0142682ead957d78"
+        ],
+        "x": 1394,
+        "y": 819,
+        "w": 532,
+        "h": 342
+    },
+    {
+        "id": "39899cf4352875c0",
+        "type": "group",
+        "z": "tab_home3",
+        "name": "DASHBOARD ",
+        "style": {
+            "stroke": "#6f2fa0",
+            "fill": "#bfc7d7",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "69816d048d03ce6a",
+            "d963fa675f83b16c",
+            "6ebb62a2bd26b473",
+            "490929b92ad7d8ff",
+            "81ec7d6023546ed5",
+            "40a8b20630735e34",
+            "d9c393a9b49062f0"
+        ],
+        "x": 1224,
+        "y": 839,
+        "w": 532,
+        "h": 342
+    },
+    {
         "id": "ab2410acf9b562a2",
         "type": "group",
         "z": "5eaf4de03ec59a24",
@@ -140,6 +538,288 @@
         "y": 799,
         "w": 532,
         "h": 342
+    },
+    {
+        "id": "a336190b25584c65",
+        "type": "group",
+        "z": "f92137337b69bb20",
+        "name": "DASHBOARD",
+        "style": {
+            "stroke": "#6f2fa0",
+            "fill": "#dbcbe7",
+            "label": true,
+            "label-position": "n",
+            "color": "#000000"
+        },
+        "nodes": [
+            "433b5780c2d21e1e",
+            "b658264065fca201",
+            "501241503afb4231",
+            "eb7e7c4143acc1d6",
+            "b134d10756efad2d",
+            "438ee1c39c894703",
+            "1cfe56a7fedd94b5",
+            "c670998baafb41d7"
+        ],
+        "x": 414,
+        "y": 139,
+        "w": 672,
+        "h": 302
+    },
+    {
+        "id": "c7c0a1e3dashboardtab",
+        "type": "ui_tab",
+        "name": "Smart Home",
+        "icon": "dashboard",
+        "order": 1
+    },
+    {
+        "id": "c7c0a1e3dashboardgroup",
+        "type": "ui_group",
+        "name": "Overview",
+        "tab": "c7c0a1e3dashboardtab",
+        "order": 1,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "3d58f89d21657b76",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 6,
+                "cy": 6,
+                "px": 0,
+                "py": 0
+            }
+        }
+    },
+    {
+        "id": "ui_tab_soc",
+        "type": "ui_tab",
+        "name": "SOC Office",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "ui_group_overview",
+        "type": "ui_group",
+        "name": "SOC Overview",
+        "tab": "ui_tab_soc",
+        "order": 1,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "ui_group_intake",
+        "type": "ui_group",
+        "name": "Intake Room",
+        "tab": "ui_tab_soc",
+        "order": 2,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "ui_group_triage",
+        "type": "ui_group",
+        "name": "Triage Room",
+        "tab": "ui_tab_soc",
+        "order": 3,
+        "disp": true,
+        "width": "12",
+        "collapse": false
+    },
+    {
+        "id": "331bcc48bf045913",
+        "type": "ui_group",
+        "name": "Overview (Status Wall)",
+        "tab": "",
+        "order": 1,
+        "disp": true,
+        "width": 6,
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "b8f99415c56a25a7",
+        "type": "ui_group",
+        "name": "Rooms (Live State)",
+        "tab": "",
+        "order": 2,
+        "disp": true,
+        "width": 6,
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "aa9a2f887c67b4e2",
+        "type": "ui_group",
+        "name": "Trends (Charts)",
+        "tab": "",
+        "order": 3,
+        "disp": true,
+        "width": 6,
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "1d4578db68fb323b",
+        "type": "ui_group",
+        "name": "Security (Outdoors)",
+        "tab": "",
+        "order": 4,
+        "disp": true,
+        "width": 6,
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "2e563970eb4fa6ae",
+        "type": "ui_tab",
+        "name": "home-1",
+        "icon": "dashboard",
+        "order": 2,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "e9a78a20bc6286ae",
+        "type": "ui_group",
+        "name": "Overview (Status Wall)",
+        "tab": "2e563970eb4fa6ae",
+        "order": 1,
+        "disp": true,
+        "width": "16",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "291e1080e691db4d",
+        "type": "ui_tab",
+        "name": "Home2",
+        "icon": "dashboard",
+        "order": 3,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "99fcdceb30d6f346",
+        "type": "ui_tab",
+        "name": "Home3",
+        "icon": "dashboard",
+        "order": 4,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "0731a6ef08a5a174",
+        "type": "ui_group",
+        "name": "Overview status wall",
+        "tab": "291e1080e691db4d",
+        "order": 1,
+        "disp": true,
+        "width": "17",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "87b77888e7087783",
+        "type": "ui_group",
+        "name": "home 3 overview",
+        "tab": "99fcdceb30d6f346",
+        "order": 1,
+        "disp": true,
+        "width": "17",
+        "collapse": false,
+        "className": ""
     },
     {
         "id": "f89dc126cde6c112",
@@ -784,27 +1464,1726 @@
         "wires": []
     },
     {
-        "id": "e9a78a20bc6286ae",
-        "type": "ui_group",
-        "name": "Overview (Status Wall)",
-        "tab": "2e563970eb4fa6ae",
+        "id": "presence2_inject",
+        "type": "inject",
+        "z": "tab_home2",
+        "g": "364e4f6bf1d33ecb",
+        "name": "Presence Simulator",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "15",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 790,
+        "y": 100,
+        "wires": [
+            [
+                "presence2_fn"
+            ]
+        ],
+        "icon": "font-awesome/fa-address-book"
+    },
+    {
+        "id": "presence2_fn",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "364e4f6bf1d33ecb",
+        "name": "Human Presence Context",
+        "func": "const presence = {\n  living_room: Math.random() > 0.5,\n  bedroom: Math.random() > 0.6,\n  office: Math.random() > 0.4,\n  entrance: Math.random() > 0.8,\n};\n\nflow.set(\"presence_home2\", presence);\n\nmsg.topic = \"presence_update\";\nmsg.payload = presence;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1090,
+        "y": 100,
+        "wires": [
+            [
+                "2d3008e0225c0620"
+            ]
+        ]
+    },
+    {
+        "id": "lr2_light_in",
+        "type": "inject",
+        "z": "tab_home2",
+        "g": "a55da16041019a4d",
+        "name": "LR Ambient Light",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "6",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 230,
+        "y": 220,
+        "wires": [
+            [
+                "lr2_light_fn"
+            ]
+        ],
+        "icon": "font-awesome/fa-lightbulb-o"
+    },
+    {
+        "id": "lr2_light_fn",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "a55da16041019a4d",
+        "name": "LR Smart Light Device",
+        "func": "const p = flow.get('presence_home2') || {};\nconst on = p.living_room || false;\nmsg.payload = {\n  home_id: \"home_2\",\n  room: \"living_room\",\n  device_type: \"smart_light\",\n  device_id: \"light_lr_02\",\n  value: on ? \"ON\" : \"OFF\",\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 500,
+        "y": 220,
+        "wires": [
+            [
+                "home2_agg"
+            ]
+        ]
+    },
+    {
+        "id": "lr2_speaker_in",
+        "type": "inject",
+        "z": "tab_home2",
+        "g": "b80e8792982882ad",
+        "name": "Smart Speaker",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "9",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 220,
+        "y": 340,
+        "wires": [
+            [
+                "lr2_speaker_fn"
+            ]
+        ],
+        "icon": "font-awesome/fa-file-sound-o"
+    },
+    {
+        "id": "lr2_speaker_fn",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "b80e8792982882ad",
+        "name": "Smart Speaker Device",
+        "func": "const p = flow.get('presence_home2') || {};\nconst active = p.living_room || false;\nmsg.payload = {\n  home_id: \"home_2\",\n  room: \"living_room\",\n  device_type: \"smart_speaker\",\n  device_id: \"speaker_lr_02\",\n  state: active ? \"PLAYING\" : \"IDLE\",\n  volume: active ? Math.floor(30 + Math.random()*20) : 0,\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 460,
+        "y": 340,
+        "wires": [
+            [
+                "home2_agg"
+            ]
+        ]
+    },
+    {
+        "id": "br2_heater_in",
+        "type": "inject",
+        "z": "tab_home2",
+        "g": "b80e8792982882ad",
+        "name": "Bedroom Heater",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "8",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 230,
+        "y": 440,
+        "wires": [
+            [
+                "br2_heater_fn"
+            ]
+        ],
+        "icon": "font-awesome/fa-hotel"
+    },
+    {
+        "id": "br2_heater_fn",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "b80e8792982882ad",
+        "name": "Bedroom Smart Heater",
+        "func": "let temp = flow.get('br2_temp') || 19;\ntemp += Math.random()*1.2 - 0.4;\nflow.set('br2_temp', temp);\nconst p = flow.get('presence_home2') || {};\nconst on = p.bedroom && temp < 20;\nmsg.payload = {\n  home_id: \"home_2\",\n  room: \"bedroom\",\n  device_type: \"smart_heater\",\n  device_id: \"heater_br_02\",\n  value: on ? \"ON\" : \"OFF\",\n  temperature: Number(temp.toFixed(1)),\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 470,
+        "y": 440,
+        "wires": [
+            [
+                "home2_agg"
+            ]
+        ]
+    },
+    {
+        "id": "office_lamp_in",
+        "type": "inject",
+        "z": "tab_home2",
+        "g": "915f07ee615ee6ed",
+        "name": "Office Desk Lamp",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "7",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 230,
+        "y": 560,
+        "wires": [
+            [
+                "office_lamp_fn"
+            ]
+        ],
+        "icon": "node-red/light.svg"
+    },
+    {
+        "id": "office_lamp_fn",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "915f07ee615ee6ed",
+        "name": "Desk Lamp Device",
+        "func": "const p = flow.get('presence_home2') || {};\nconst someoneHere = p.office === true;\nconst on = p.office || false;\nmsg.payload = {\n  home_id: \"home_2\",\n  room: \"office\",\n  device_type: \"desk_lamp\",\n  device_id: \"lamp_of_02\",\n  value: someoneHere ? \"ON\" : \"OFF\",\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 560,
+        "wires": [
+            [
+                "home2_agg"
+            ]
+        ]
+    },
+    {
+        "id": "office_pc_in",
+        "type": "inject",
+        "z": "tab_home2",
+        "g": "915f07ee615ee6ed",
+        "name": "Work Laptop",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "12",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 220,
+        "y": 620,
+        "wires": [
+            [
+                "office_pc_fn"
+            ]
+        ],
+        "icon": "font-awesome/fa-laptop"
+    },
+    {
+        "id": "office_pc_fn",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "915f07ee615ee6ed",
+        "name": "Laptop Telemetry",
+        "func": "const p = flow.get('presence_home2') || {};\nmsg.payload = {\n  home_id: \"home_2\",\n  room: \"office\",\n  device_type: \"laptop\",\n  device_id: \"pc_of_02\",\n  cpu_load: p.office ? Math.floor(40 + Math.random()*40) : 5,\n  network_active: p.office,\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 490,
+        "y": 620,
+        "wires": [
+            [
+                "home2_agg"
+            ]
+        ]
+    },
+    {
+        "id": "door_in",
+        "type": "inject",
+        "z": "tab_home2",
+        "g": "785a288261a9032e",
+        "name": "Smart Door Lock",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "15",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 230,
+        "y": 740,
+        "wires": [
+            [
+                "door_fn"
+            ]
+        ],
+        "icon": "font-awesome/fa-lock"
+    },
+    {
+        "id": "door_fn",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "785a288261a9032e",
+        "name": "Door Lock Device",
+        "func": "const p = flow.get('presence_home2') || {};\nconst locked = !p.entrance;\nmsg.payload = {\n  home_id: \"home_2\",\n  room: \"entrance\",\n  device_type: \"smart_lock\",\n  device_id: \"lock_en_02\",\n  state: locked ? \"LOCKED\" : \"UNLOCKED\",\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 470,
+        "y": 740,
+        "wires": [
+            [
+                "home2_agg"
+            ]
+        ]
+    },
+    {
+        "id": "home2_agg",
+        "type": "function",
+        "z": "tab_home2",
+        "name": "Home-2 Aggregator",
+        "func": "msg.topic = \"home_2\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 870,
+        "y": 500,
+        "wires": [
+            [
+                "home2_link",
+                "b2cb5d058dd9f7ae",
+                "51a38a8e9edc1d63"
+            ]
+        ]
+    },
+    {
+        "id": "home2_link",
+        "type": "link out",
+        "z": "tab_home2",
+        "name": "To IoT Gateway",
+        "mode": "link",
+        "links": [
+            "soc_in_h2"
+        ],
+        "x": 1200,
+        "y": 500,
+        "wires": [],
+        "l": true
+    },
+    {
+        "id": "b2cb5d058dd9f7ae",
+        "type": "link out",
+        "z": "tab_home2",
+        "name": "home2 dashboard",
+        "mode": "link",
+        "links": [
+            "bf11bb155d6f67ef"
+        ],
+        "x": 1200,
+        "y": 560,
+        "wires": [],
+        "l": true
+    },
+    {
+        "id": "bf11bb155d6f67ef",
+        "type": "link in",
+        "z": "tab_home2",
+        "g": "125ba30770acd240",
+        "name": "link in 1",
+        "links": [
+            "b2cb5d058dd9f7ae"
+        ],
+        "x": 1435,
+        "y": 960,
+        "wires": [
+            [
+                "0cb71fbd1e55f8e1",
+                "7d44e23f28a287cb",
+                "dbc2641008693e6f"
+            ]
+        ]
+    },
+    {
+        "id": "1cb3b09178e1752b",
+        "type": "ui_gauge",
+        "z": "tab_home2",
+        "g": "125ba30770acd240",
+        "name": "",
+        "group": "0731a6ef08a5a174",
+        "order": 0,
+        "width": "6",
+        "height": "4",
+        "gtype": "gage",
+        "title": "active-devices",
+        "label": "units",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "6",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1820,
+        "y": 860,
+        "wires": []
+    },
+    {
+        "id": "859bec6fb1cce2e2",
+        "type": "ui_text",
+        "z": "tab_home2",
+        "g": "125ba30770acd240",
+        "group": "0731a6ef08a5a174",
         "order": 1,
-        "disp": true,
-        "width": "16",
-        "collapse": false,
-        "className": ""
+        "width": "12",
+        "height": "2",
+        "name": "",
+        "label": "last-event",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 1780,
+        "y": 1060,
+        "wires": []
     },
     {
-        "id": "2e563970eb4fa6ae",
-        "type": "ui_tab",
-        "name": "home-1",
-        "icon": "dashboard",
+        "id": "0cb71fbd1e55f8e1",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "125ba30770acd240",
+        "name": "count active devices",
+        "func": "// persistent state of devices\nlet devices = flow.get(\"home2_devices\") || {};\n\n// extract event\nconst e = msg.payload;\nif (!e || !e.device_id) return null;\n\n// update device state\ndevices[e.device_id] = (e.value === \"ON\");\n\n// save state\nflow.set(\"home2_devices\", devices);\n\n// count active devices\nconst activeCount = Object.values(devices).filter(v => v === true).length;\n\nmsg.payload = activeCount;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1640,
+        "y": 960,
+        "wires": [
+            [
+                "1cb3b09178e1752b"
+            ]
+        ]
+    },
+    {
+        "id": "7d44e23f28a287cb",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "125ba30770acd240",
+        "name": "last-event",
+        "func": "const e = msg.payload || {};\n\nconst room = e.room || \"unknown\";\nconst device = e.device_type || \"device\";\nconst id = e.device_id || \"\";\nconst value =\n    e.value ??\n    (e.locked !== undefined ? (e.locked ? \"LOCKED\" : \"UNLOCKED\") :\n        (e.motion_detected !== undefined ? (e.motion_detected ? \"MOTION\" : \"CLEAR\") :\n            \"—\"));\n\nmsg.payload = `${room} → ${device} (${id}) = ${value}`;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1620,
+        "y": 1020,
+        "wires": [
+            [
+                "859bec6fb1cce2e2"
+            ]
+        ]
+    },
+    {
+        "id": "dbc2641008693e6f",
+        "type": "function",
+        "z": "tab_home2",
+        "g": "125ba30770acd240",
+        "name": "security filter",
+        "func": "const e = msg.payload || {};\n\nlet status = \"CLEAR\";\nlet color = \"green\";\n\nif (\n    e.device_type?.includes(\"door\") &&\n    e.locked === false\n) {\n    status = \"ALERT\";\n    color = \"red\";\n}\n\nif (\n    e.motion_detected === true\n) {\n    status = \"ALERT\";\n    color = \"red\";\n}\n\n\n\nmsg.payload = status;\nmsg.color = color;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1590,
+        "y": 1120,
+        "wires": [
+            [
+                "0142682ead957d78"
+            ]
+        ]
+    },
+    {
+        "id": "0142682ead957d78",
+        "type": "ui_template",
+        "z": "tab_home2",
+        "g": "125ba30770acd240",
+        "group": "0731a6ef08a5a174",
+        "name": "",
         "order": 2,
-        "disabled": false,
-        "hidden": false
+        "width": "15",
+        "height": "1",
+        "format": "<div style=\"\n  font-size: 26px;\n  font-weight: bold;\n  color: {{msg.payload === 'ALERT' ? '#e53935' : '#43a047'}};\n\">\n    SECURITY STATUS: {{msg.payload}}\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1820,
+        "y": 1120,
+        "wires": [
+            []
+        ]
     },
     {
-        "id": "bab54fd2c852c180",
+        "id": "2d3008e0225c0620",
+        "type": "ui_template",
+        "z": "tab_home2",
+        "g": "364e4f6bf1d33ecb",
+        "group": "0731a6ef08a5a174",
+        "name": "Presence snapshot",
+        "order": 3,
+        "width": "6",
+        "height": "4",
+        "format": "<div style=\"display:flex; justify-content:space-between; font-size:16px;\">\n\n    <div>\n        <b>Presence Snapshot</b><br><br>\n\n        <span style=\"color: {{msg.payload.living_room ? '#43a047' : '#9e9e9e'}};\">\n      ■ Living Room\n    </span><br>\n\n        <span style=\"color: {{msg.payload.bedroom ? '#43a047' : '#9e9e9e'}};\">\n      ■ Bedroom\n    </span><br>\n\n        <span style=\"color: {{msg.payload.work_office ? '#43a047' : '#9e9e9e'}};\">\n      ■ Work Office\n    </span><br>\n\n        <span style=\"color: {{msg.payload.outdoor ? '#43a047' : '#9e9e9e'}};\">\n      ■ Outdoors\n    </span>\n\n    </div>\n\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1330,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "51a38a8e9edc1d63",
+        "type": "function",
+        "z": "tab_home2",
+        "name": "Network Dispatcher",
+        "func": "// Home-2 Network Dispatcher\nmsg.ip = \"10.0.1.3\";     // h3\nmsg.port = 7002;\n\nmsg.payload = JSON.stringify(msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 970,
+        "y": 740,
+        "wires": [
+            [
+                "43658b2c48908c17",
+                "77b3cf6d8861af3b"
+            ]
+        ]
+    },
+    {
+        "id": "43658b2c48908c17",
+        "type": "tcp out",
+        "z": "tab_home2",
+        "name": "TCP-OUT",
+        "host": "172.16.4.2",
+        "port": "7003",
+        "beserver": "client",
+        "base64": false,
+        "end": false,
+        "tls": "",
+        "x": 1050,
+        "y": 840,
+        "wires": []
+    },
+    {
+        "id": "77b3cf6d8861af3b",
+        "type": "debug",
+        "z": "tab_home2",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1230,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "presence3_inject",
+        "type": "inject",
+        "z": "tab_home3",
+        "g": "76812db2c2f3a666",
+        "name": "Presence Simulator",
+        "repeat": "8",
+        "once": true,
+        "onceDelay": 1,
+        "x": 980,
+        "y": 100,
+        "wires": [
+            [
+                "presence3_fn"
+            ]
+        ]
+    },
+    {
+        "id": "presence3_fn",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "76812db2c2f3a666",
+        "name": "Human Presence Context",
+        "func": "\n\nconst presence = {\n  living_room: Math.random() > 0.5,\n  bedroom: Math.random() > 0.6,\n  office: Math.random() > 0.4,\n  entrance: Math.random() > 0.8,\n};\n\nflow.set(\"presence_home3\", presence);\n\nmsg.topic = \"presence_update\";\nmsg.payload = presence;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1280,
+        "y": 100,
+        "wires": [
+            [
+                "38551269c752558c"
+            ]
+        ]
+    },
+    {
+        "id": "lr3_light_in",
+        "type": "inject",
+        "z": "tab_home3",
+        "g": "d068336f9f7d16ac",
+        "name": "LR Guest Light",
+        "repeat": "5",
+        "once": true,
+        "onceDelay": 1,
+        "x": 400,
+        "y": 280,
+        "wires": [
+            [
+                "lr3_light_fn"
+            ]
+        ]
+    },
+    {
+        "id": "lr3_light_fn",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "d068336f9f7d16ac",
+        "name": "LR Smart Light",
+        "func": "const p = flow.get('presence_home3') || {};\nmsg.payload = {\n  home_id: \"home_3\",\n  room: \"living_room\",\n  device_type: \"smart_light\",\n  device_id: \"light_lr_03\",\n  value: p.living_room ? \"ON\" : \"OFF\",\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 280,
+        "wires": [
+            [
+                "home3_agg"
+            ]
+        ]
+    },
+    {
+        "id": "lr3_tv_in",
+        "type": "inject",
+        "z": "tab_home3",
+        "g": "d068336f9f7d16ac",
+        "name": "Guest TV",
+        "repeat": "6",
+        "once": true,
+        "onceDelay": 1,
+        "x": 400,
+        "y": 330,
+        "wires": [
+            [
+                "lr3_tv_fn"
+            ]
+        ]
+    },
+    {
+        "id": "lr3_tv_fn",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "d068336f9f7d16ac",
+        "name": "Smart TV (Guest)",
+        "func": "const p = flow.get('presence_home3') || {};\nconst on = p.living_room && Math.random() > 0.3;\nmsg.payload = {\n  home_id: \"home_3\",\n  room: \"living_room\",\n  device_type: \"smart_tv\",\n  device_id: \"tv_lr_03\",\n  value: on ? \"ON\" : \"OFF\",\n  power_watt: on ? Math.floor(140 + Math.random()*60) : 0,\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 330,
+        "wires": [
+            [
+                "home3_agg"
+            ]
+        ]
+    },
+    {
+        "id": "br3_ac_in",
+        "type": "inject",
+        "z": "tab_home3",
+        "g": "9a62e92fb8644a81",
+        "name": "Bedroom AC",
+        "repeat": "7",
+        "once": true,
+        "onceDelay": 1,
+        "x": 380,
+        "y": 440,
+        "wires": [
+            [
+                "br3_ac_fn"
+            ]
+        ]
+    },
+    {
+        "id": "br3_ac_fn",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "9a62e92fb8644a81",
+        "name": "Bedroom Smart AC",
+        "func": "let temp = flow.get('br3_temp') || 26;\ntemp += Math.random()*1.5 - 0.7;\nflow.set('br3_temp', temp);\nconst p = flow.get('presence_home3') || {};\nconst on = p.bedroom && temp > 25;\nmsg.payload = {\n  home_id: \"home_3\",\n  room: \"bedroom\",\n  device_type: \"smart_ac\",\n  device_id: \"ac_br_03\",\n  value: on ? \"ON\" : \"OFF\",\n  temperature: Number(temp.toFixed(1)),\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 680,
+        "y": 440,
+        "wires": [
+            [
+                "home3_agg"
+            ]
+        ]
+    },
+    {
+        "id": "bath_heater_in",
+        "type": "inject",
+        "z": "tab_home3",
+        "g": "9a62e92fb8644a81",
+        "name": "Water Heater",
+        "repeat": "10",
+        "once": true,
+        "onceDelay": 1,
+        "x": 380,
+        "y": 510,
+        "wires": [
+            [
+                "bath_heater_fn"
+            ]
+        ]
+    },
+    {
+        "id": "bath_heater_fn",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "9a62e92fb8644a81",
+        "name": "Bathroom Water Heater",
+        "func": "const p = flow.get('presence_home3') || {};\nconst on = p.bathroom && Math.random() > 0.5;\nmsg.payload = {\n  home_id: \"home_3\",\n  room: \"bathroom\",\n  device_type: \"water_heater\",\n  device_id: \"heater_bath_03\",\n  value: on ? \"ON\" : \"OFF\",\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 680,
+        "y": 510,
+        "wires": [
+            [
+                "home3_agg"
+            ]
+        ]
+    },
+    {
+        "id": "lock3_in",
+        "type": "inject",
+        "z": "tab_home3",
+        "g": "60f4190abbcccb3f",
+        "name": "Door Lock",
+        "repeat": "6",
+        "once": true,
+        "onceDelay": 1,
+        "x": 370,
+        "y": 640,
+        "wires": [
+            [
+                "lock3_fn"
+            ]
+        ]
+    },
+    {
+        "id": "lock3_fn",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "60f4190abbcccb3f",
+        "name": "Smart Door Lock",
+        "func": "const p = flow.get('presence_home3') || {};\nmsg.payload = {\n  home_id: \"home_3\",\n  room: \"entrance\",\n  device_type: \"smart_lock\",\n  device_id: \"lock_en_03\",\n  state: p.entrance ? \"UNLOCKED\" : \"LOCKED\",\n  timestamp: Date.now()\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 670,
+        "y": 640,
+        "wires": [
+            [
+                "home3_agg"
+            ]
+        ]
+    },
+    {
+        "id": "home3_agg",
+        "type": "function",
+        "z": "tab_home3",
+        "name": "Home-3 Aggregator",
+        "func": "msg.topic = \"home_3\";\nreturn msg;",
+        "outputs": 1,
+        "x": 1150,
+        "y": 440,
+        "wires": [
+            [
+                "home3_link",
+                "992825fa780c417e",
+                "7d6ace552ffa89b1"
+            ]
+        ]
+    },
+    {
+        "id": "home3_link",
+        "type": "link out",
+        "z": "tab_home3",
+        "name": "To IoT Gateway",
+        "mode": "link",
+        "links": [
+            "soc_in_h3"
+        ],
+        "x": 1420,
+        "y": 440,
+        "wires": [],
+        "l": true
+    },
+    {
+        "id": "992825fa780c417e",
+        "type": "link out",
+        "z": "tab_home3",
+        "name": "To IoT Gateway",
+        "mode": "link",
+        "links": [
+            "69816d048d03ce6a"
+        ],
+        "x": 1410,
+        "y": 520,
+        "wires": [],
+        "l": true
+    },
+    {
+        "id": "69816d048d03ce6a",
+        "type": "link in",
+        "z": "tab_home3",
+        "g": "39899cf4352875c0",
+        "name": "link in 3",
+        "links": [
+            "992825fa780c417e"
+        ],
+        "x": 1265,
+        "y": 980,
+        "wires": [
+            [
+                "490929b92ad7d8ff",
+                "81ec7d6023546ed5",
+                "40a8b20630735e34"
+            ]
+        ]
+    },
+    {
+        "id": "d963fa675f83b16c",
+        "type": "ui_gauge",
+        "z": "tab_home3",
+        "g": "39899cf4352875c0",
+        "name": "",
+        "group": "87b77888e7087783",
+        "order": 0,
+        "width": "6",
+        "height": "4",
+        "gtype": "gage",
+        "title": "active-devices",
+        "label": "units",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "6",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1650,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "6ebb62a2bd26b473",
+        "type": "ui_text",
+        "z": "tab_home3",
+        "g": "39899cf4352875c0",
+        "group": "87b77888e7087783",
+        "order": 1,
+        "width": "12",
+        "height": "2",
+        "name": "",
+        "label": "last-event",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 1610,
+        "y": 1080,
+        "wires": []
+    },
+    {
+        "id": "490929b92ad7d8ff",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "39899cf4352875c0",
+        "name": "count active devices",
+        "func": "// persistent state of devices\nlet devices = flow.get(\"home2_devices\") || {};\n\n// extract event\nconst e = msg.payload;\nif (!e || !e.device_id) return null;\n\n// update device state\ndevices[e.device_id] = (e.value === \"ON\");\n\n// save state\nflow.set(\"home2_devices\", devices);\n\n// count active devices\nconst activeCount = Object.values(devices).filter(v => v === true).length;\n\nmsg.payload = activeCount;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1470,
+        "y": 980,
+        "wires": [
+            [
+                "d963fa675f83b16c"
+            ]
+        ]
+    },
+    {
+        "id": "81ec7d6023546ed5",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "39899cf4352875c0",
+        "name": "last-event",
+        "func": "const e = msg.payload || {};\n\nconst room = e.room || \"unknown\";\nconst device = e.device_type || \"device\";\nconst id = e.device_id || \"\";\nconst value =\n    e.value ??\n    (e.locked !== undefined ? (e.locked ? \"LOCKED\" : \"UNLOCKED\") :\n        (e.motion_detected !== undefined ? (e.motion_detected ? \"MOTION\" : \"CLEAR\") :\n            \"—\"));\n\nmsg.payload = `${room} → ${device} (${id}) = ${value}`;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1450,
+        "y": 1040,
+        "wires": [
+            [
+                "6ebb62a2bd26b473"
+            ]
+        ]
+    },
+    {
+        "id": "40a8b20630735e34",
+        "type": "function",
+        "z": "tab_home3",
+        "g": "39899cf4352875c0",
+        "name": "security filter",
+        "func": "const e = msg.payload || {};\n\nlet status = \"CLEAR\";\nlet color = \"green\";\n\nif (\n    e.device_type?.includes(\"door\") &&\n    e.locked === false\n) {\n    status = \"ALERT\";\n    color = \"red\";\n}\n\nif (\n    e.motion_detected === true\n) {\n    status = \"ALERT\";\n    color = \"red\";\n}\n\n\n\nmsg.payload = status;\nmsg.color = color;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1420,
+        "y": 1140,
+        "wires": [
+            [
+                "d9c393a9b49062f0"
+            ]
+        ]
+    },
+    {
+        "id": "d9c393a9b49062f0",
+        "type": "ui_template",
+        "z": "tab_home3",
+        "g": "39899cf4352875c0",
+        "group": "87b77888e7087783",
+        "name": "",
+        "order": 2,
+        "width": "15",
+        "height": "1",
+        "format": "<div style=\"\n  font-size: 26px;\n  font-weight: bold;\n  color: {{msg.payload === 'ALERT' ? '#e53935' : '#43a047'}};\n\">\n    SECURITY STATUS: {{msg.payload}}\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1650,
+        "y": 1140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "38551269c752558c",
+        "type": "ui_template",
+        "z": "tab_home3",
+        "g": "76812db2c2f3a666",
+        "group": "87b77888e7087783",
+        "name": "Presence snapshot",
+        "order": 3,
+        "width": "6",
+        "height": "4",
+        "format": "<div style=\"display:flex; justify-content:space-between; font-size:16px;\">\n\n    <div>\n        <b>Presence Snapshot</b><br><br>\n\n        <span style=\"color: {{msg.payload.living_room ? '#43a047' : '#9e9e9e'}};\">\n      ■ Living Room\n    </span><br>\n\n        <span style=\"color: {{msg.payload.bedroom ? '#43a047' : '#9e9e9e'}};\">\n      ■ Bedroom\n    </span><br>\n\n        <span style=\"color: {{msg.payload.work_office ? '#43a047' : '#9e9e9e'}};\">\n      ■ Work Office\n    </span><br>\n\n        <span style=\"color: {{msg.payload.outdoor ? '#43a047' : '#9e9e9e'}};\">\n      ■ Outdoors\n    </span>\n\n    </div>\n\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1530,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "aa33979122fdc0e6",
+        "type": "tcp out",
+        "z": "tab_home3",
+        "name": "TCP-OUT",
+        "host": "172.16.5.2",
+        "port": "7005",
+        "beserver": "client",
+        "base64": false,
+        "end": false,
+        "tls": "",
+        "x": 1230,
+        "y": 680,
+        "wires": []
+    },
+    {
+        "id": "7d6ace552ffa89b1",
+        "type": "function",
+        "z": "tab_home3",
+        "name": "Network Dispatcher",
+        "func": "// Home-3 Network Dispatcher\nmsg.ip = \"10.0.1.5\";     // h5\nmsg.port = 7003;\n\nmsg.payload = JSON.stringify(msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1190,
+        "y": 600,
+        "wires": [
+            [
+                "aa33979122fdc0e6",
+                "ec0b7f70693ddac8"
+            ]
+        ]
+    },
+    {
+        "id": "ec0b7f70693ddac8",
+        "type": "debug",
+        "z": "tab_home3",
+        "name": "debug 2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1530,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "c_room_intake",
+        "type": "comment",
+        "z": "tab_soc",
+        "g": "b57ee812f335d8b1",
+        "name": "ROOM 1 — Reception / Intake Room",
+        "info": "Receives telemetry feeds from Home-1, Home-2, Home-3.\nNo filtering. No control.\nGoal: clean, explicit multi-source intake.",
+        "x": 190,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "soc_in_h1",
+        "type": "link in",
+        "z": "tab_soc",
+        "g": "b57ee812f335d8b1",
+        "name": "From Home-1",
+        "links": [
+            "12c8f12c41e8325e"
+        ],
+        "x": 70,
+        "y": 140,
+        "wires": [
+            [
+                "soc_stamp_source"
+            ]
+        ],
+        "l": true
+    },
+    {
+        "id": "soc_in_h2",
+        "type": "link in",
+        "z": "tab_soc",
+        "g": "b57ee812f335d8b1",
+        "name": "From Home-2",
+        "links": [
+            "home2_link"
+        ],
+        "x": 70,
+        "y": 200,
+        "wires": [
+            [
+                "soc_stamp_source"
+            ]
+        ],
+        "l": true
+    },
+    {
+        "id": "soc_in_h3",
+        "type": "link in",
+        "z": "tab_soc",
+        "g": "b57ee812f335d8b1",
+        "name": "From Home-3",
+        "links": [
+            "home3_link"
+        ],
+        "x": 70,
+        "y": 280,
+        "wires": [
+            [
+                "soc_stamp_source"
+            ]
+        ],
+        "l": true
+    },
+    {
+        "id": "soc_stamp_source",
+        "type": "function",
+        "z": "tab_soc",
+        "g": "b57ee812f335d8b1",
+        "name": "Intake: Identify Source Home",
+        "func": "const p = msg.payload || {};\nconst homeId = p.home_id || msg.topic || \"unknown\";\nmsg.soc = msg.soc || {};\nmsg.soc.source_home = homeId;\nmsg.soc.intake_time = Date.now();\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 200,
+        "wires": [
+            [
+                "soc_normalize"
+            ]
+        ]
+    },
+    {
+        "id": "soc_normalize",
+        "type": "function",
+        "z": "tab_soc",
+        "g": "8da138d49ac1d1d6",
+        "name": "SOC Normalize + Enrich",
+        "func": "const p = msg.payload || {};\nconst homeId = (msg.soc && msg.soc.source_home) ? msg.soc.source_home : (p.home_id || \"unknown\");\n\n// Normalize key fields with safe fallbacks\nconst deviceType = p.device_type || p.context || \"unknown\";\nconst room = p.room || \"unknown\";\n\nmsg.payload = {\n  neighborhood_id: \"neighborhood_A\",\n  soc_id: \"soc_office_01\",\n  soc_ingest_time: Date.now(),\n  source_home: homeId,\n  room: room,\n  device_type: deviceType,\n  device_id: p.device_id || \"unknown\",\n  raw: p\n};\n\nreturn msg;",
+        "outputs": 1,
+        "x": 670,
+        "y": 200,
+        "wires": [
+            [
+                "soc_classify",
+                "soc_metrics_tap"
+            ]
+        ]
+    },
+    {
+        "id": "soc_classify",
+        "type": "function",
+        "z": "tab_soc",
+        "g": "646533748180e86c",
+        "name": "SOC Triage: Classify Event",
+        "func": "const e = msg.payload || {};\nconst dt = (e.device_type || \"\").toLowerCase();\nlet cls = \"other\";\n\nif (dt.includes(\"lock\") || dt.includes(\"door\") || dt.includes(\"camera\") || dt.includes(\"security\")) {\n  cls = \"access_event\";\n} else if (dt.includes(\"temp\") || dt.includes(\"humidity\") || dt.includes(\"ac\") || dt.includes(\"heater\") || dt.includes(\"water\")) {\n  cls = \"environment_event\";\n} else if (dt.includes(\"tv\") || dt.includes(\"speaker\") || dt.includes(\"laptop\") || dt.includes(\"plug\") || dt.includes(\"lamp\") || dt.includes(\"light\")) {\n  cls = \"usage_event\";\n} else {\n  cls = \"security_observation\";\n}\n\ne.event_class = cls;\n\n// Create a short human-readable summary (dashboard)\nconst home = e.source_home || \"unknown\";\nconst dev = e.device_type || \"unknown\";\nconst room = e.room || \"unknown\";\ne.summary = `${home} | ${room} | ${dev}`;\n\nmsg.payload = e;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 200,
+        "wires": [
+            [
+                "soc_to_dispatch",
+                "soc_dashboard_tap",
+                "4b82877049c3055d"
+            ]
+        ]
+    },
+    {
+        "id": "soc_to_dispatch",
+        "type": "function",
+        "z": "tab_soc",
+        "g": "a4f59552ccdf4055",
+        "name": "Dispatch: JSON Encode",
+        "func": "msg.payload = JSON.stringify(msg.payload);\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1410,
+        "y": 200,
+        "wires": [
+            [
+                "d260aba82e67835a"
+            ]
+        ]
+    },
+    {
+        "id": "soc_tcp_out",
+        "type": "tcp out",
+        "z": "tab_soc",
+        "g": "a4f59552ccdf4055",
+        "name": "TCP-OUT",
+        "host": "172.16.7.2",
+        "port": "7007",
+        "beserver": "client",
+        "base64": false,
+        "end": false,
+        "tls": "",
+        "x": 1860,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "soc_last_event",
+        "type": "ui_text",
+        "z": "tab_soc",
+        "g": "fad336ca632672bf",
+        "group": "ui_group_overview",
+        "order": 1,
+        "width": 12,
+        "height": 1,
+        "name": "Last Event Summary",
+        "label": "Last SOC Event",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1460,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "soc_gauge_access",
+        "type": "ui_gauge",
+        "z": "tab_soc",
+        "g": "fad336ca632672bf",
+        "name": "",
+        "group": "ui_group_triage",
+        "order": 1,
+        "width": 4,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Access Events (rate)",
+        "label": "events/min",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "30",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1120,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "soc_gauge_env",
+        "type": "ui_gauge",
+        "z": "tab_soc",
+        "g": "fad336ca632672bf",
+        "name": "",
+        "group": "ui_group_triage",
+        "order": 2,
+        "width": 4,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Environment Events (rate)",
+        "label": "events/min",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "30",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1130,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "soc_gauge_usage",
+        "type": "ui_gauge",
+        "z": "tab_soc",
+        "g": "fad336ca632672bf",
+        "name": "",
+        "group": "ui_group_triage",
+        "order": 3,
+        "width": 4,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Usage Events (rate)",
+        "label": "events/min",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "30",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1100,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "soc_chart_per_home",
+        "type": "ui_chart",
+        "z": "tab_soc",
+        "g": "fad336ca632672bf",
+        "name": "Events per Home (timeline)",
+        "group": "ui_group_intake",
+        "order": 1,
+        "width": 12,
+        "height": 5,
+        "label": "Events per Home",
+        "chartType": "line",
+        "legend": "true",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "Waiting for telemetry...",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "",
+        "removeOlder": "3",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#f82020",
+            "#3d09fb",
+            "#0feb63",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000",
+            "#000000"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 1480,
+        "y": 560,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "soc_dashboard_tap",
+        "type": "function",
+        "z": "tab_soc",
+        "g": "646533748180e86c",
+        "name": "Dashboard Tap: Summary + Chart",
+        "func": "const e = msg.payload || {};\n\nconst summary = `\n${e.source_home} | ${e.room}\n${e.device_type}\nClass: ${e.event_class}\n`;\n\nnode.send([{ payload: summary.trim() }, null]);\nnode.send([null, { topic: e.source_home, payload: 1 }]);\nreturn null;\n",
+        "outputs": 2,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 300,
+        "wires": [
+            [
+                "soc_last_event"
+            ],
+            [
+                "soc_chart_per_home"
+            ]
+        ]
+    },
+    {
+        "id": "soc_metrics_tap",
+        "type": "function",
+        "z": "tab_soc",
+        "g": "8da138d49ac1d1d6",
+        "name": "Metrics: Event Class Rates",
+        "func": "// Maintain per-minute rolling counters (simple)\nconst now = Date.now();\nlet bucket = flow.get('soc_bucket') || {start: now, access: 0, env: 0, usage: 0};\n\n// Reset every 60 seconds\nif (now - bucket.start > 60000) {\n  bucket = {start: now, access: 0, env: 0, usage: 0};\n}\n\nconst e = msg.payload || {};\nconst cls = (e.event_class || '').toLowerCase();\nif (cls === 'access_event') bucket.access += 1;\nelse if (cls === 'environment_event') bucket.env += 1;\nelse if (cls === 'usage_event') bucket.usage += 1;\n\nflow.set('soc_bucket', bucket);\n\n// Send values to gauges (events per current minute bucket)\nreturn [\n  {payload: bucket.access},\n  {payload: bucket.env},\n  {payload: bucket.usage}\n];",
+        "outputs": 3,
+        "x": 690,
+        "y": 300,
+        "wires": [
+            [
+                "soc_gauge_access"
+            ],
+            [
+                "soc_gauge_env"
+            ],
+            [
+                "soc_gauge_usage"
+            ]
+        ]
+    },
+    {
+        "id": "83d7c8e4651379f2",
+        "type": "ui_text",
+        "z": "tab_soc",
+        "group": "ui_group_overview",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "name": "",
+        "label": "SOC STATUS",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 1640,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "4b82877049c3055d",
+        "type": "function",
+        "z": "tab_soc",
+        "name": "SOC STATUS EVAL",
+        "func": "const e = msg.payload || {};\nlet status = \"NORMAL\";\nlet color = \"green\";\n\nif (e.event_class === \"access_event\") {\n    status = \"ACCESS ACTIVITY\";\n    color = \"orange\";\n}\n\nif (e.device_type.includes(\"camera\") || e.device_type.includes(\"lock\")) {\n    status = \"SECURITY OBSERVATION\";\n    color = \"red\";\n}\n\nmsg.payload = status;\nmsg.color = color;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1420,
+        "y": 300,
+        "wires": [
+            [
+                "83d7c8e4651379f2"
+            ]
+        ]
+    },
+    {
+        "id": "d260aba82e67835a",
+        "type": "function",
+        "z": "tab_soc",
+        "g": "a4f59552ccdf4055",
+        "name": "Network Dispatcher",
+        "func": "// SOC Office Network Dispatcher\nmsg.ip = \"10.0.1.7\";     // h7\nmsg.port = 7099;\n\nmsg.payload = JSON.stringify(msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1650,
+        "y": 200,
+        "wires": [
+            [
+                "soc_tcp_out",
+                "fbbd70f6d7695e77"
+            ]
+        ]
+    },
+    {
+        "id": "fbbd70f6d7695e77",
+        "type": "debug",
+        "z": "tab_soc",
+        "g": "a4f59552ccdf4055",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1850,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "433b5780c2d21e1e",
+        "type": "debug",
+        "z": "f92137337b69bb20",
+        "g": "a336190b25584c65",
+        "name": "debug 7",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "b658264065fca201",
+        "type": "ui_gauge",
+        "z": "f92137337b69bb20",
+        "g": "a336190b25584c65",
+        "name": "",
+        "group": "",
+        "order": 1,
+        "width": "6",
+        "height": "4",
+        "gtype": "gage",
+        "title": "ACTIVE DEVICES",
+        "label": "devices",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "6",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 970,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "501241503afb4231",
+        "type": "function",
+        "z": "f92137337b69bb20",
+        "g": "a336190b25584c65",
+        "name": "COUNT ACTIVE DEVICES",
+        "func": "let active = flow.get(\"active_devices\") || {};\nconst p = msg.payload;\n\nconst key = `${p.room}_${p.device_id}`;\n\nlet isActive = false;\n\nif (p.value === \"ON\") isActive = true;\nif (p.motion_detected === true) isActive = true;\nif (p.device_type === \"smart_fridge\") isActive = true;\n\nif (isActive) {\n    active[key] = true;\n} else {\n    delete active[key];\n}\n\nflow.set(\"active_devices\", active);\n\n// IMPORTANT: gauge must receive a NUMBER\nmsg.payload = Object.keys(active).length;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 180,
+        "wires": [
+            [
+                "b658264065fca201"
+            ]
+        ]
+    },
+    {
+        "id": "eb7e7c4143acc1d6",
+        "type": "ui_text",
+        "z": "f92137337b69bb20",
+        "g": "a336190b25584c65",
+        "group": "",
+        "order": 2,
+        "width": "6",
+        "height": "2",
+        "name": "",
+        "label": "last room event",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 960,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "b134d10756efad2d",
+        "type": "function",
+        "z": "f92137337b69bb20",
+        "g": "a336190b25584c65",
+        "name": "security filter",
+        "func": "if (msg.payload.device_type !== \"security_camera\") return null;\n\nconst motion = msg.payload.motion_detected === true;\n\nconst now = new Date();\nconst ts = now.toLocaleTimeString();\n\nif (motion) {\n  flow.set(\"last_motion_time\", ts);\n}\n\nmsg.payload = {\n  status: motion ? \"🚨 MOTION\" : \"🟢 CLEAR\",\n  last_motion: flow.get(\"last_motion_time\") || \"—\"\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 320,
+        "wires": [
+            [
+                "1cfe56a7fedd94b5"
+            ]
+        ]
+    },
+    {
+        "id": "438ee1c39c894703",
+        "type": "link in",
+        "z": "f92137337b69bb20",
+        "g": "a336190b25584c65",
+        "name": "HOME1 - BUS IN",
+        "links": [],
+        "x": 455,
+        "y": 280,
+        "wires": [
+            [
+                "501241503afb4231",
+                "b134d10756efad2d",
+                "433b5780c2d21e1e",
+                "c670998baafb41d7"
+            ]
+        ]
+    },
+    {
+        "id": "1cfe56a7fedd94b5",
+        "type": "ui_text",
+        "z": "f92137337b69bb20",
+        "g": "a336190b25584c65",
+        "group": "",
+        "order": 5,
+        "width": "6",
+        "height": "3",
+        "name": "",
+        "label": "security",
+        "format": "Status: {{msg.payload.status}} Last motion: {{msg.payload.last_motion}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 940,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "c670998baafb41d7",
+        "type": "function",
+        "z": "f92137337b69bb20",
+        "g": "a336190b25584c65",
+        "name": "Format Last Event",
+        "func": "const p = msg.payload;\n\nlet v = p.value;\nif (v === undefined && p.motion_detected !== undefined) {\n  v = p.motion_detected ? \"MOTION\" : \"NO MOTION\";\n}\n\nmsg.payload = `${p.room} → ${p.device_type} (${p.device_id}) = ${v}`;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 690,
+        "y": 240,
+        "wires": [
+            [
+                "eb7e7c4143acc1d6"
+            ]
+        ]
+    },
+    {
+        "id": "cf661ec7f2e5a6a4",
         "type": "global-config",
         "env": [],
         "modules": {
