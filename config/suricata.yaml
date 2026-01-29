@@ -1,7 +1,19 @@
-# Suricata Configuration for SDN-IDS Integration
+# Merged Suricata Configuration for IoT-SDN-IDS System
+# Combines settings from both branches for optimal IoT monitoring
 
 %YAML 1.1
 ---
+
+# Network variables
+vars:
+  address-groups:
+    HOME_NET: "[10.0.1.0/24,10.0.2.0/24,172.16.0.0/16]"  # Include both Mininet and veth networks
+    EXTERNAL_NET: "!$HOME_NET"
+    
+    # IoT-specific networks
+    IOT_VLAN1: "[10.0.1.0/24]"  # Sensors with Node-RED
+    IOT_VLAN2: "[10.0.2.0/24]"  # Internal actuators
+    NODERED_NET: "[172.16.0.0/16]"  # Veth pairs
 
 # Network interface configuration
 af-packet:
@@ -16,15 +28,15 @@ af-packet:
 # Packet capture settings
 default-packet-size: 1518
 
-# Log directory - all relative filenames will be written here
+# CRITICAL: Log directory must be /tmp/ for cross-namespace access
 default-log-dir: /tmp/
 
-# Output modules
+# Output modules - Write to /tmp/eve.json for controller access
 outputs:
   - eve-log:
       enabled: yes
       filetype: regular
-      filename: eve.json
+      filename: eve.json  # Relative to default-log-dir (/tmp/)
       community-id: true
       community-id-seed: 0
       types:
@@ -85,6 +97,11 @@ app-layer:
         enabled: yes
     ssh:
       enabled: yes
+    mqtt:
+      enabled: yes
+      detection-ports:
+        dp: 1883
+        sp: 1883
 
 # Detection engine settings
 detect:
@@ -112,7 +129,7 @@ threading:
           high: [ 3 ]
           default: "medium"
 
-# Rule files
+# Rule files - Using absolute path for reliability
 default-rule-path: /home/kali/sdn-project/config
 rule-files:
   - custom.rules

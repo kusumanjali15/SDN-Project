@@ -1,60 +1,230 @@
-# Custom Suricata Rules for SDN Integration
-# Only high-severity alerts (priority 1-2) trigger automatic blocking
+# Merged Custom Suricata Rules for IoT-SDN-IDS System
+# Combines original attack detection with IoT-specific threats
 
-# ===== ICMP Rules =====
-# ICMP Flood Detection - triggers alert when 10+ pings in 5 seconds from same source
-# type:both = alerts once when threshold is reached, then suppresses duplicates
-alert icmp any any -> any any (msg:"ICMP Flood Attack Detected"; threshold: type both, track by_src, count 10, seconds 5; classtype:attempted-dos; sid:1000002; rev:4; priority:1;)
+# ============================================
+# ORIGINAL ICMP/TCP/UDP FLOOD DETECTION
+# ============================================
 
-# ICMP Ping Sweep Detection - scanning multiple hosts
-alert icmp any any -> any any (msg:"ICMP Ping Sweep Detected"; threshold: type both, track by_src, count 8, seconds 10; classtype:network-scan; sid:1000003; rev:3; priority:2;)
+# ICMP Flood Detection
+alert icmp any any -> any any (msg:"ICMP Flood Detected - High frequency pings"; \
+    icode:0; itype:8; \
+    threshold: type both, track by_src, count 20, seconds 10; \
+    priority:1; \
+    sid:1000001; rev:1; \
+    classtype:attempted-dos;)
 
-# ===== Port Scan Detection =====
-# SYN Scan Detection (high severity)
-alert tcp any any -> any any (msg:"Potential SYN Port Scan"; flags:S,12; threshold: type both, track by_src, count 20, seconds 10; classtype:attempted-recon; sid:1000010; rev:1; priority:1;)
+alert icmp any any -> 10.0.0.0/8 any (msg:"ICMP Flood to internal network"; \
+    icode:0; itype:8; \
+    threshold: type both, track by_src, count 25, seconds 10; \
+    priority:1; \
+    sid:1000002; rev:1; \
+    classtype:attempted-dos;)
 
-# General Port Scan
-alert tcp any any -> any any (msg:"Multiple Port Connections"; threshold: type threshold, track by_src, count 30, seconds 60; classtype:attempted-recon; sid:1000011; rev:1; priority:2;)
+# TCP SYN Flood
+alert tcp any any -> any any (msg:"TCP SYN Flood Attack"; \
+    flags:S; \
+    threshold: type both, track by_src, count 50, seconds 10; \
+    priority:1; \
+    sid:1000010; rev:1; \
+    classtype:attempted-dos;)
 
-# ===== SSH Attacks =====
-# SSH Brute Force (high severity)
-alert tcp any any -> any 22 (msg:"SSH Brute Force Attack"; flags:S; threshold: type both, track by_src, count 10, seconds 60; classtype:attempted-admin; sid:1000020; rev:1; priority:1;)
+# UDP Flood
+alert udp any any -> any any (msg:"UDP Flood Attack"; \
+    threshold: type both, track by_src, count 100, seconds 10; \
+    priority:1; \
+    sid:1000020; rev:1; \
+    classtype:attempted-dos;)
 
-# SSH Multiple Failed Logins
-alert tcp any any -> any 22 (msg:"Multiple SSH Connection Attempts"; flow:to_server; threshold: type both, track by_src, count 5, seconds 30; classtype:attempted-admin; sid:1000021; rev:1; priority:2;)
+# ============================================
+# IOT DEVICE-TO-DEVICE ATTACKS
+# ============================================
 
-# ===== HTTP Attacks =====
-# SQL Injection Attempt (high severity)
-alert http any any -> any any (msg:"Possible SQL Injection Attack"; flow:to_server; content:"union"; nocase; content:"select"; nocase; classtype:web-application-attack; sid:1000030; rev:1; priority:1;)
+# IoT device flooding another IoT device
+alert icmp 10.0.1.0/24 any -> 10.0.1.0/24 any (msg:"IoT Device ICMP Flood - VLAN1"; \
+    icode:0; itype:8; \
+    threshold: type both, track by_src, count 15, seconds 10; \
+    priority:1; \
+    sid:2000001; rev:1; \
+    classtype:attempted-dos;)
 
-# XSS Attempt
-alert http any any -> any any (msg:"Possible XSS Attack"; flow:to_server; content:"<script"; nocase; classtype:web-application-attack; sid:1000031; rev:1; priority:2;)
+alert icmp 10.0.2.0/24 any -> 10.0.2.0/24 any (msg:"IoT Device ICMP Flood - VLAN2"; \
+    icode:0; itype:8; \
+    threshold: type both, track by_src, count 15, seconds 10; \
+    priority:1; \
+    sid:2000002; rev:1; \
+    classtype:attempted-dos;)
 
-# Directory Traversal
-alert http any any -> any any (msg:"Directory Traversal Attempt"; flow:to_server; content:"../"; classtype:web-application-attack; sid:1000032; rev:1; priority:2;)
+# Cross-VLAN attack attempts
+alert tcp 10.0.1.0/24 any -> 10.0.2.0/24 any (msg:"Suspicious Cross-VLAN Traffic"; \
+    flags:S; \
+    threshold: type both, track by_src, count 20, seconds 30; \
+    priority:2; \
+    sid:2000003; rev:1; \
+    classtype:policy-violation;)
 
-# ===== DNS Attacks =====
-# DNS Tunneling Detection
-alert dns any any -> any any (msg:"Possible DNS Tunneling"; dns_query; content:"|00 10|"; depth:2; classtype:policy-violation; sid:1000040; rev:1; priority:2;)
+# ============================================
+# NODE-RED VETH INTERFACE ATTACKS
+# ============================================
 
-# DNS Amplification Attack
-alert udp any 53 -> any any (msg:"Possible DNS Amplification Attack"; threshold: type threshold, track by_src, count 50, seconds 10; classtype:attempted-dos; sid:1000041; rev:1; priority:1;)
+# Flood from veth network to Mininet
+alert icmp 172.16.0.0/16 any -> 10.0.0.0/8 any (msg:"ICMP Flood from Node-RED veth"; \
+    icode:0; itype:8; \
+    threshold: type both, track by_src, count 20, seconds 10; \
+    priority:1; \
+    sid:2000010; rev:1; \
+    classtype:attempted-dos;)
 
-# ===== DoS/DDoS Detection =====
-# SYN Flood (high severity) - 30 SYN packets to same destination in 2 seconds
-alert tcp any any -> any any (msg:"SYN Flood Attack Detected"; flags:S,12; threshold: type both, track by_dst, count 30, seconds 2; classtype:attempted-dos; sid:1000050; rev:2; priority:1;)
+# Excessive HTTP requests from Node-RED
+alert http 172.16.0.0/16 any -> 10.0.0.0/8 any (msg:"HTTP Flood from Node-RED"; \
+    flow:to_server; \
+    threshold: type both, track by_src, count 50, seconds 10; \
+    priority:1; \
+    sid:2000011; rev:1; \
+    classtype:web-application-attack;)
 
-# UDP Flood - 50 UDP packets to same destination in 2 seconds
-alert udp any any -> any any (msg:"UDP Flood Attack Detected"; threshold: type both, track by_dst, count 50, seconds 2; classtype:attempted-dos; sid:1000051; rev:2; priority:1;)
+# Port scanning from veth network
+alert tcp 172.16.0.0/16 any -> 10.0.0.0/8 any (msg:"Port Scan from Node-RED Network"; \
+    flags:S; \
+    threshold: type both, track by_src, count 15, seconds 30; \
+    priority:1; \
+    sid:2000012; rev:1; \
+    classtype:attempted-recon;)
 
-# Connection Flood - Many connections from single source
-alert tcp any any -> any any (msg:"TCP Connection Flood Detected"; flags:S; threshold: type both, track by_src, count 40, seconds 3; classtype:attempted-dos; sid:1000052; rev:1; priority:1;)
+# ============================================
+# IOT PROTOCOL-SPECIFIC ATTACKS
+# ============================================
 
-# ===== Malware/Exploit Detection =====
-# Suspicious Executable Download
-alert http any any -> any any (msg:"Suspicious EXE Download"; flow:to_client; content:".exe"; nocase; classtype:trojan-activity; sid:1000060; rev:1; priority:2;)
+# MQTT Protocol Abuse (if used)
+alert tcp any any -> any 1883 (msg:"MQTT Connection Flood"; \
+    flags:S; \
+    threshold: type both, track by_src, count 30, seconds 10; \
+    priority:1; \
+    sid:2000020; rev:1; \
+    classtype:attempted-dos;)
 
-# Suspicious PowerShell Activity
-alert tcp any any -> any any (msg:"Suspicious PowerShell Activity"; content:"powershell"; nocase; content:"-enc"; nocase; classtype:trojan-activity; sid:1000061; rev:1; priority:1;)
+# HTTP Attacks on IoT Devices
+alert http any any -> 10.0.1.0/24 any (msg:"HTTP Attack on IoT Sensors"; \
+    flow:to_server; \
+    content:"../"; \
+    priority:1; \
+    sid:2000021; rev:1; \
+    classtype:web-application-attack;)
 
+# IoT Device Exploitation Attempts
+alert tcp any any -> 10.0.1.0/24 [80,443,8080] (msg:"IoT Web Interface Brute Force"; \
+    flow:to_server; \
+    threshold: type both, track by_dst, count 20, seconds 60; \
+    priority:1; \
+    sid:2000022; rev:1; \
+    classtype:attempted-admin;)
 
+# ============================================
+# SPECIFIC IOT DEVICE PROTECTION
+# ============================================
+
+# Temperature Sensor (h1 - 10.0.1.1)
+alert tcp any any -> 10.0.1.1 any (msg:"Temperature Sensor Under Attack"; \
+    flags:S; \
+    threshold: type both, track by_src, count 30, seconds 20; \
+    priority:1; \
+    sid:2000030; rev:1; \
+    classtype:attempted-dos;)
+
+# Smart Light (h3 - 10.0.1.3)
+alert http any any -> 10.0.1.3 any (msg:"Smart Light Exploitation Attempt"; \
+    flow:to_server; \
+    content:"POST"; http_method; \
+    threshold: type both, track by_src, count 20, seconds 30; \
+    priority:1; \
+    sid:2000031; rev:1; \
+    classtype:web-application-attack;)
+
+# Security Camera (h5 - 10.0.1.5)
+alert tcp any any -> 10.0.1.5 [80,554,8080] (msg:"Camera Access Attempt"; \
+    flags:S; \
+    threshold: type both, track by_src, count 15, seconds 30; \
+    priority:2; \
+    sid:2000032; rev:1; \
+    classtype:attempted-recon;)
+
+# Smart Thermostat (h7 - 10.0.1.7)
+alert tcp any any -> 10.0.1.7 any (msg:"Thermostat Manipulation Attempt"; \
+    flow:established; \
+    threshold: type both, track by_src, count 25, seconds 20; \
+    priority:1; \
+    sid:2000033; rev:1; \
+    classtype:attempted-admin;)
+
+# Motion Detector (h2 - 10.0.2.2)
+alert tcp any any -> 10.0.2.2 any (msg:"Motion Detector DoS Attack"; \
+    threshold: type both, track by_src, count 30, seconds 15; \
+    priority:1; \
+    sid:2000034; rev:1; \
+    classtype:attempted-dos;)
+
+# Smart Lock (h4 - 10.0.2.4)
+alert tcp any any -> 10.0.2.4 any (msg:"Smart Lock Unauthorized Access"; \
+    flow:established; \
+    threshold: type both, track by_src, count 10, seconds 60; \
+    priority:1; \
+    sid:2000035; rev:1; \
+    classtype:attempted-admin;)
+
+# ============================================
+# DATA EXFILTRATION DETECTION
+# ============================================
+
+# Unusual outbound traffic from IoT devices
+alert tcp 10.0.1.0/24 any -> !10.0.0.0/8 any (msg:"IoT Device Data Exfiltration Attempt"; \
+    flow:to_server; \
+    dsize:>5000; \
+    threshold: type both, track by_src, count 10, seconds 30; \
+    priority:2; \
+    sid:2000040; rev:1; \
+    classtype:policy-violation;)
+
+# Camera video stream hijacking
+alert tcp 10.0.1.5 any -> !10.0.0.0/8 any (msg:"Camera Stream External Redirect"; \
+    flow:established; \
+    threshold: type both, track by_dst, count 10, seconds 30; \
+    priority:1; \
+    sid:2000041; rev:1; \
+    classtype:policy-violation;)
+
+# ============================================
+# COMPROMISED IOT DEVICE BEHAVIOR
+# ============================================
+
+# IoT device participating in DDoS
+alert tcp 10.0.0.0/8 any -> !10.0.0.0/8 any (msg:"IoT Device Outbound DDoS Activity"; \
+    flags:S; \
+    threshold: type both, track by_src, count 50, seconds 10; \
+    priority:1; \
+    sid:2000050; rev:1; \
+    classtype:attempted-dos;)
+
+# IoT device scanning external networks
+alert tcp 10.0.0.0/8 any -> !10.0.0.0/8 any (msg:"IoT Device External Network Scan"; \
+    flags:S; \
+    threshold: type both, track by_src, count 30, seconds 30; \
+    priority:1; \
+    sid:2000051; rev:1; \
+    classtype:attempted-recon;)
+
+# ============================================
+# TESTING RULES (LOW PRIORITY)
+# ============================================
+
+# General IoT traffic monitoring (for testing)
+alert icmp any any -> 10.0.1.0/24 any (msg:"ICMP to IoT Sensors (Monitor)"; \
+    icode:0; itype:8; \
+    priority:3; \
+    sid:9000001; rev:1; \
+    classtype:misc-activity;)
+
+# Node-RED connectivity test
+alert icmp 172.16.0.0/16 any -> 10.0.1.0/24 any (msg:"Node-RED to IoT Traffic (Monitor)"; \
+    icode:0; itype:8; \
+    priority:3; \
+    sid:9000002; rev:1; \
+    classtype:misc-activity;)

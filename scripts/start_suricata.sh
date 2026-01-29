@@ -1,10 +1,10 @@
 #!/bin/bash
-# Start Suricata IDS with proper alert logging
+# Start Suricata IDS - UPDATED for Merged IoT-SDN System
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-echo "=== Starting Suricata IDS ==="
+echo "=== Starting Suricata IDS (Merged IoT-SDN System) ==="
 
 # Check if Mininet is running
 if ! pgrep -f "mininet" > /dev/null; then
@@ -24,34 +24,41 @@ fi
 
 echo "✓ Found Suricata host (PID: $SURICATA_PID)"
 
-# Clear old alert logs - Suricata writes to /tmp/ as configured in suricata.yaml
-sudo rm -f /tmp/suricata-alerts.json /tmp/suricata-fast.log /tmp/suricata-stats.log
-sudo touch /tmp/suricata-alerts.json
-sudo chmod 666 /tmp/suricata-alerts.json
+# Clear old alert logs
+# IMPORTANT: merged_suricata.yaml writes to /tmp/eve.json (not suricata-alerts.json)
+sudo rm -f /tmp/eve.json /tmp/fast.log /tmp/suricata.log
+sudo touch /tmp/eve.json /tmp/fast.log
+sudo chmod 666 /tmp/eve.json /tmp/fast.log
 
-echo "✓ Alert log cleared: /tmp/suricata-alerts.json"
+echo "✓ Alert logs cleared:"
+echo "  - /tmp/eve.json (main alert file)"
+echo "  - /tmp/fast.log (fast format)"
 
-# Clean up any old PID files and existing Suricata daemon processes (not this script!)
+# Clean up any old PID files and existing Suricata processes
 sudo rm -f /var/run/suricata.pid
-# Use pkill with full path match to avoid killing this script
 sudo pkill -9 -x suricata 2>/dev/null || true
 sleep 1
 
 IFACE="suricata-eth0"
 echo "✓ Interface: $IFACE (inside Mininet namespace)"
 echo "✓ Config: $PROJECT_DIR/config/suricata.yaml"
+echo "✓ Rules: $PROJECT_DIR/config/custom.rules"
 echo ""
 echo "Starting Suricata in FOREGROUND mode..."
 echo "Press Ctrl+C to stop Suricata"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Suricata IDS is now running. Alerts will be logged to:"
-echo "  - /tmp/suricata-alerts.json (JSON format)"
+echo "Suricata IDS is now monitoring:"
+echo "  - IoT devices (10.0.1.x, 10.0.2.x)"
+echo "  - Node-RED veth traffic (172.16.x.x)"
+echo "  - All mirrored S1 traffic"
+echo ""
+echo "Alerts logged to: /tmp/eve.json"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Run Suricata in FOREGROUND mode (no -D flag) in the Mininet namespace
-# Do NOT use -l flag so Suricata writes to paths in suricata.yaml (/tmp/)
+# Run Suricata in FOREGROUND mode in the Mininet namespace
+# Suricata will write to /tmp/eve.json as configured in merged_suricata.yaml
 sudo nsenter -t $SURICATA_PID -n suricata \
     -c "$PROJECT_DIR/config/suricata.yaml" \
     -i $IFACE \
