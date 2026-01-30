@@ -4,7 +4,8 @@ A Software-Defined Networking (SDN) project integrating **Ryu OpenFlow Controlle
 
 ## Overview
 
-This project demonstrates how SDN can be combined with network intrusion detection to create an automated security response system. Traditional networks require manual intervention when threats are detected, but this system automatically blocks malicious IP addresses within seconds of detection.
+This project demonstrates how SDN can be combined with network intrusion detection and IoT traffic simulation to observe, analyze, and validate security events in a controlled environment. The system focuses on traffic mirroring, Suricata-based detection, and realistic IoT traffic injection using Node-RED.
+
 
 **Key Concepts:**
 - **Software-Defined Networking (SDN)**: Separates the control plane (decision-making) from the data plane (packet forwarding). The Ryu controller makes all routing decisions, while OVS switches simply forward packets according to flow rules.
@@ -47,11 +48,14 @@ This project demonstrates how SDN can be combined with network intrusion detecti
 
 - **Real-time IDS**: Suricata runs in AF_PACKET mode, capturing packets directly from the network interface with minimal overhead. It analyzes traffic against 231 custom rules designed for IoT environments, including flood detection, protocol abuse, and device-specific protections.
 
-- **Automated Blocking**: When Suricata detects a high-severity threat (severity 1 or 2), it writes an alert to `/tmp/eve.json`. The controller's monitoring thread detects this within 500ms and immediately installs drop rules on ALL connected switches, not just the one where the attack was detected. This prevents lateral movement.
+- **IDS Alert Generation**: Suricata analyzes mirrored traffic and generates structured alerts in `/tmp/eve.json`. These alerts can be monitored live and used by an external SDN controller or SOC logic for response actions.
+
 
 - **Node-RED Integration**: Virtual Ethernet (veth) pairs create a bridge between the host operating system and Mininet's isolated network namespace. This allows Node-RED (running on the host) to inject IoT traffic into the simulated network, enabling realistic IoT attack simulations.
+The provided flows have been tested with hosts h1, h3, h5, and h7, each representing an independent IoT device sending traffic through its own veth pair into the Mininet network.
 
-- **Alert Deduplication**: Without deduplication, a single flood attack could generate hundreds of identical alerts, overwhelming the controller. The system tracks (SID, source_ip) combinations and suppresses duplicates within a 60-second window.
+
+- **SOC-Oriented Monitoring**: Alert streams are optimized for real-time monitoring and SOC dashboards (e.g., Node-RED), allowing repeated events such as floods to be clearly observed and correlated.
 
 - **Persistence**: The system survives restarts gracefully. Blocked IPs are saved to `/tmp/blocked_ips.txt` and reloaded on startup. The alert file position is tracked in `/tmp/alert_position.txt` so already-processed alerts aren't re-processed after restart.
 
@@ -70,6 +74,9 @@ This is the brain of the system. It extends Ryu's `app_manager.RyuApp` base clas
 2. Controller records: "MAC X is reachable via port Y on switch Z"
 3. Controller installs a flow rule so future packets to MAC X go directly to port Y
 4. This process repeats until all MACs are learned, then traffic flows without controller involvement
+
+> **Note:** The controller code provided in this repository is a reference implementation. In the current working setup, the SDN controller is run externally and independently from this repository. The core focus here is the topology, Suricata integration, and IoT traffic injection.
+
 
 **Key Methods Explained:**
 
@@ -93,6 +100,9 @@ This is the brain of the system. It extends Ryu's `app_manager.RyuApp` base clas
 - Blocking priority: 200 (overrides learning flows at priority 10, above table-miss at priority 0)
 
 ### Topology ([topology/topology.py](topology/topology.py))
+
+The topology has been validated to support multiple IoT devices simultaneously, each with its own dedicated veth connection for Node-RED traffic injection. This ensures parallel traffic flows from multiple simulated homes/devices into the SOC monitoring pipeline.
+
 
 **Class: `IoTSDNTopology`** - Network structure with IoT integration (287 lines)
 
