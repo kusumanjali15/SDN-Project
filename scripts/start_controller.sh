@@ -10,7 +10,7 @@ echo "Verbose logging enabled - you will see flows being installed"
 echo ""
 
 # Activate virtual environment
-source /home/kali/venvs/ryu-py310/bin/activate
+source /home/kali/SDN/.venv/bin/activate
 
 # Run with verbose logging (no --verbose flag, INFO level is default)
 ryu-manager --ofp-tcp-listen-port 6653 "$PROJECT_DIR/controller/ryu_controller.py"

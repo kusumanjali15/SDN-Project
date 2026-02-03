@@ -130,7 +130,7 @@ threading:
           default: "medium"
 
 # Rule files - Using absolute path for reliability
-default-rule-path: /home/kali/sdn-project/config
+default-rule-path: /home/kali/SDN/config
 rule-files:
   - custom.rules
 
