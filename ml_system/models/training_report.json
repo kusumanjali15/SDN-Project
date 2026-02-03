@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-02-02T15:40:06.183637",
+  "anomaly_detector_accuracy": 1.0,
+  "attack_classifier_accuracy": 1.0,
+  "features_used": [
+    "packets_per_second",
+    "tcp_ratio",
+    "udp_ratio",
+    "icmp_ratio",
+    "port_diversity",
+    "avg_packet_size",
+    "std_packet_size",
+    "avg_inter_arrival",
+    "syn_count",
+    "ack_count",
+    "fin_count",
+    "total_packets"
+  ],
+  "models": {
+    "anomaly_detector": "RandomForestClassifier (100 trees)",
+    "attack_classifier": "RandomForestClassifier (150 trees)"
+  }
+}
