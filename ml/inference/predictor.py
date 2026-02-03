@@ -1,20 +1,23 @@
 """
 Real-time Prediction Interface for SDN-IDS
 
-Combines anomaly detection and attack classification into
-a unified prediction pipeline that can be called from
-the Ryu controller.
+Combines anomaly detection, attack classification, and LSTM 
+sequence analysis into a unified prediction pipeline that can 
+be called from the Ryu controller.
 
-Two-stage approach:
+Three-stage approach:
 1. Anomaly Detection (Isolation Forest): Is this traffic normal or abnormal?
-2. Attack Classification (Random Forest): What type of attack is this?
+2. Attack Classification (Random Forest): What type of attack?
+3. LSTM Sequence Analysis: Temporal pattern recognition for attacks
 """
 
 import numpy as np
 from typing import Dict, Tuple, Optional, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from collections import deque
 import os
 import logging
+import pickle
 
 # Import local modules
 import sys
@@ -24,6 +27,13 @@ from data.collector import FlowStats, FlowCollector
 from data.preprocessor import FlowPreprocessor
 from models.anomaly_detector import AnomalyDetector
 from models.attack_classifier import AttackClassifier
+
+# Try to import LSTM (PyTorch)
+try:
+    from models.lstm_classifier import SimpleLSTMClassifier
+    LSTM_AVAILABLE = True
+except ImportError:
+    LSTM_AVAILABLE = False
 
 
 @dataclass
@@ -38,9 +48,13 @@ class PredictionResult:
     attack_confidence: float  # 0-1
     class_probabilities: Dict[str, float]  # All class probabilities
     
+    # LSTM results
+    lstm_attack_type: str = 'unknown'
+    lstm_confidence: float = 0.0
+    
     # Metadata
-    flow_key: str  # Source flow identification
-    recommendation: str  # 'allow', 'block', 'monitor'
+    flow_key: str = ""  # Source flow identification
+    recommendation: str = "allow"  # 'allow', 'block', 'monitor'
     
     def to_dict(self) -> Dict:
         return {
@@ -49,6 +63,8 @@ class PredictionResult:
             'attack_type': self.attack_type,
             'attack_confidence': self.attack_confidence,
             'class_probabilities': self.class_probabilities,
+            'lstm_attack_type': self.lstm_attack_type,
+            'lstm_confidence': self.lstm_confidence,
             'flow_key': self.flow_key,
             'recommendation': self.recommendation
         }
@@ -89,6 +105,17 @@ class MLPredictor:
         # Preprocessor
         self.flow_preprocessor: Optional[FlowPreprocessor] = None
         
+        # LSTM components
+        self.lstm_classifier: Optional['SimpleLSTMClassifier'] = None
+        self.lstm_scaler = None
+        self.lstm_label_encoder = None
+        self.lstm_sequence_length = 20
+        self.lstm_features = ['packet_count', 'byte_count', 'packets_per_second',
+                              'bytes_per_second', 'avg_packet_size']
+        
+        # Sequence buffer per source IP for LSTM
+        self.sequence_buffers: Dict[str, deque] = {}
+        
         # Flow collector for tracking flows
         self.flow_collector = FlowCollector()
         
@@ -97,6 +124,7 @@ class MLPredictor:
             'total_predictions': 0,
             'anomalies_detected': 0,
             'attacks_classified': 0,
+            'lstm_predictions': 0,
             'blocks_recommended': 0
         }
         
@@ -137,6 +165,36 @@ class MLPredictor:
                 self.logger.info("✓ Loaded flow preprocessor")
             else:
                 self.logger.warning("Flow preprocessor not found at %s", prep_path)
+            
+            # Load LSTM classifier (PyTorch)
+            lstm_path = os.path.join(self.model_dir, "lstm_classifier")
+            if LSTM_AVAILABLE and os.path.exists(lstm_path + ".meta"):
+                try:
+                    self.lstm_classifier = SimpleLSTMClassifier()
+                    self.lstm_classifier.load(lstm_path)
+                    self.logger.info("✓ Loaded LSTM classifier")
+                    self.logger.info("  LSTM Classes: %s", self.lstm_classifier.class_names)
+                    
+                    # Load LSTM scaler and encoder
+                    scaler_path = os.path.join(self.model_dir, "lstm_scaler.pkl")
+                    encoder_path = os.path.join(self.model_dir, "lstm_label_encoder.pkl")
+                    
+                    if os.path.exists(scaler_path):
+                        with open(scaler_path, 'rb') as f:
+                            self.lstm_scaler = pickle.load(f)
+                        self.logger.info("✓ Loaded LSTM scaler")
+                    
+                    if os.path.exists(encoder_path):
+                        with open(encoder_path, 'rb') as f:
+                            self.lstm_label_encoder = pickle.load(f)
+                        self.logger.info("✓ Loaded LSTM label encoder")
+                except Exception as e:
+                    self.logger.warning("Could not load LSTM classifier: %s", e)
+            else:
+                if not LSTM_AVAILABLE:
+                    self.logger.warning("LSTM not available (PyTorch not installed)")
+                else:
+                    self.logger.warning("LSTM classifier not found at %s", lstm_path)
             
             self.is_loaded = (self.anomaly_detector is not None or 
                              self.attack_classifier is not None)
@@ -212,7 +270,14 @@ class MLPredictor:
                 if result.attack_type != 'normal':
                     self.stats['attacks_classified'] += 1
             
-            # Decision Logic
+            # Stage 3: LSTM Sequence Analysis
+            lstm_result = self._predict_lstm(flow)
+            if lstm_result:
+                result.lstm_attack_type = lstm_result[0]
+                result.lstm_confidence = lstm_result[1]
+                self.stats['lstm_predictions'] += 1
+            
+            # Decision Logic (now includes LSTM)
             result.recommendation = self._make_decision(result)
             
             if result.recommendation == 'block':
@@ -225,10 +290,11 @@ class MLPredictor:
     
     def _make_decision(self, result: PredictionResult) -> str:
         """
-        Make blocking decision based on both models.
+        Make blocking decision based on all three models.
         
         Decision matrix:
         - Anomaly + Attack classified (high conf) -> BLOCK
+        - LSTM attack detected (high conf) -> BLOCK
         - Anomaly + Normal classified -> MONITOR
         - No anomaly + Attack classified (high conf) -> BLOCK (classifier override)
         - No anomaly + Normal classified -> ALLOW
@@ -237,19 +303,95 @@ class MLPredictor:
         high_confidence = result.attack_confidence > self.classification_threshold
         high_anomaly = result.anomaly_score > self.anomaly_threshold
         
-        # Strong signal from classifier - trust it
+        # LSTM attack detection with high confidence
+        lstm_attack = result.lstm_attack_type not in ['normal', 'unknown', '']
+        lstm_high_conf = result.lstm_confidence > self.classification_threshold
+        
+        # Strong signal from Random Forest classifier - trust it
         if attack_detected and high_confidence:
             return 'block'
         
-        # Anomaly detected but classifier says normal - monitor
+        # LSTM detected attack with high confidence
+        if lstm_attack and lstm_high_conf:
+            return 'block'
+        
+        # Both classifiers agree on attack (even if not high conf individually)
+        if attack_detected and lstm_attack:
+            return 'block'
+        
+        # Anomaly detected but classifiers say normal - monitor
         if result.is_anomaly and not attack_detected:
             return 'monitor'
         
-        # High anomaly score even if classifier unsure
+        # High anomaly score even if classifiers unsure
         if high_anomaly:
             return 'monitor'
         
         # Default: allow
+        return 'allow'
+    
+    def _predict_lstm(self, flow: FlowStats) -> Optional[Tuple[str, float]]:
+        """
+        Run LSTM prediction on flow sequence.
+        
+        Maintains a buffer of recent flows per source IP and
+        predicts when enough data is available.
+        
+        Returns:
+            Tuple of (attack_type, confidence) or None if not enough data
+        """
+        if not self.lstm_classifier or not self.lstm_classifier.is_fitted:
+            return None
+        
+        src_ip = flow.src_ip
+        
+        # Initialize buffer for this IP if needed
+        if src_ip not in self.sequence_buffers:
+            self.sequence_buffers[src_ip] = deque(maxlen=self.lstm_sequence_length)
+        
+        # Extract LSTM features from flow
+        lstm_features = [
+            flow.packet_count,
+            flow.byte_count,
+            flow.packets_per_second,
+            flow.bytes_per_second,
+            flow.avg_packet_size
+        ]
+        
+        # Add to buffer
+        self.sequence_buffers[src_ip].append(lstm_features)
+        
+        # Check if we have enough data for prediction
+        if len(self.sequence_buffers[src_ip]) < self.lstm_sequence_length:
+            return None
+        
+        try:
+            # Create sequence array
+            sequence = np.array(list(self.sequence_buffers[src_ip]))
+            
+            # Scale features
+            if self.lstm_scaler:
+                sequence = self.lstm_scaler.transform(sequence)
+            
+            # Reshape for LSTM: (1, seq_length, n_features)
+            X = sequence.reshape(1, self.lstm_sequence_length, len(self.lstm_features))
+            
+            # Get prediction
+            probs = self.lstm_classifier.predict_proba(X)[0]
+            predicted_idx = np.argmax(probs)
+            confidence = float(probs[predicted_idx])
+            
+            # Get class name
+            if self.lstm_classifier.class_names:
+                attack_type = self.lstm_classifier.class_names[predicted_idx]
+            else:
+                attack_type = f"class_{predicted_idx}"
+            
+            return (attack_type, confidence)
+            
+        except Exception as e:
+            self.logger.debug("LSTM prediction error: %s", e)
+            return None
         return 'allow'
     
     def predict_from_packet_data(self,
@@ -296,12 +438,12 @@ class MLPredictor:
         )
         
         # Trigger prediction after minimum packets
-        MIN_PACKETS_FOR_PREDICTION = 5
+        # Low threshold (3) for quick detection during attacks
+        MIN_PACKETS_FOR_PREDICTION = 3
         
         if flow.packet_count >= MIN_PACKETS_FOR_PREDICTION:
-            # Only predict every N packets to avoid overhead
-            if flow.packet_count % 10 == 0 or flow.packet_count == MIN_PACKETS_FOR_PREDICTION:
-                return self.predict_flow(flow)
+            # Predict on every packet for responsive ML detection
+            return self.predict_flow(flow)
         
         return None
     
@@ -365,9 +507,12 @@ class MLPredictor:
                                        self.anomaly_detector.is_fitted),
             'attack_classifier_ready': (self.attack_classifier is not None and 
                                         self.attack_classifier.is_fitted),
+            'lstm_classifier_ready': (self.lstm_classifier is not None and 
+                                      self.lstm_classifier.is_fitted),
             'preprocessor_ready': (self.flow_preprocessor is not None and 
                                    self.flow_preprocessor.is_fitted),
             'active_flows': len(self.flow_collector.flows),
+            'active_lstm_sequences': len(self.sequence_buffers),
             'total_packets_processed': self.flow_collector.total_packets,
             'statistics': self.stats
         }
@@ -378,8 +523,13 @@ class MLPredictor:
             'total_predictions': 0,
             'anomalies_detected': 0,
             'attacks_classified': 0,
+            'lstm_predictions': 0,
             'blocks_recommended': 0
         }
+    
+    def clear_sequence_buffers(self):
+        """Clear LSTM sequence buffers"""
+        self.sequence_buffers.clear()
 
 
 # Convenience function for quick testing
