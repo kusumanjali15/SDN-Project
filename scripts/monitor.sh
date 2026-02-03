@@ -1,37 +1,67 @@
 #!/bin/bash
-# Monitor Suricata Alerts - ROBUST VERSION
+# Monitor Suricata Alerts AND ML Predictions
 
-echo "=== Suricata Alert Monitor (Merged IoT-SDN) ==="
-echo "Watching: /tmp/eve.json"
+echo "╔════════════════════════════════════════════════════════════╗"
+echo "║       SDN-IDS Combined Alert Monitor                       ║"
+echo "╠════════════════════════════════════════════════════════════╣"
+echo "║  🔍 Suricata: /tmp/eve.json                                ║"
+echo "║  🤖 ML Alerts: /tmp/ml_alerts.json                         ║"
+echo "╚════════════════════════════════════════════════════════════╝"
+echo ""
 echo "Press Ctrl+C to stop"
 echo ""
 
-ALERT_FILE="/tmp/eve.json"
+SURICATA_FILE="/tmp/eve.json"
+ML_FILE="/tmp/ml_alerts.json"
 
-if [ ! -f "$ALERT_FILE" ]; then
-    echo "⚠️  Alert file not found. Waiting..."
-    echo ""
-fi
+# Create files if they don't exist
+touch "$SURICATA_FILE" "$ML_FILE" 2>/dev/null
 
-# Monitor with error handling
-tail -f "$ALERT_FILE" 2>/dev/null | while IFS= read -r line; do
-    if [ -n "$line" ] && [[ "$line" == *"}"* ]]; then
-        if echo "$line" | grep -q '"event_type":"alert"'; then
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            if command -v jq &> /dev/null; then
-                echo "$line" | jq -C 'select(.event_type == "alert") | {
-                    time: .timestamp,
-                    severity: .alert.severity,
-                    signature: .alert.signature,
-                    sid: .alert.signature_id,
-                    src: .src_ip,
-                    dst: .dest_ip,
-                    proto: .proto
-                }' 2>/dev/null || echo "$line"
-            else
-                echo "$line" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(f\"Alert: {d['alert']['signature']} | Src: {d['src_ip']} | Dst: {d['dest_ip']} | Severity: {d['alert']['severity']}\")" 2>/dev/null || echo "$line"
-            fi
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# Use tail with multiple files - simpler approach
+tail -f "$SURICATA_FILE" "$ML_FILE" 2>/dev/null | while IFS= read -r line; do
+    # Skip empty lines and tail headers
+    [[ -z "$line" ]] && continue
+    [[ "$line" == "==>"* ]] && continue
+    [[ "$line" != *"}"* ]] && continue
+    
+    # Check if it's a Suricata alert
+    if echo "$line" | grep -q '"event_type":"alert"'; then
+        echo ""
+        echo "┌─────────────────────────────────────────────────────────────┐"
+        echo "│ 🛡️  SURICATA ALERT                                          │"
+        echo "└─────────────────────────────────────────────────────────────┘"
+        if command -v jq &> /dev/null; then
+            echo "$line" | jq -C 'select(.event_type == "alert") | {
+                time: .timestamp,
+                severity: .alert.severity,
+                signature: .alert.signature,
+                sid: .alert.signature_id,
+                src: .src_ip,
+                dst: .dest_ip,
+                proto: .proto
+            }' 2>/dev/null || echo "$line"
+        else
+            echo "$line"
+        fi
+    # Check if it's an ML prediction
+    elif echo "$line" | grep -q '"event_type":"ml_prediction"'; then
+        echo ""
+        echo "┌─────────────────────────────────────────────────────────────┐"
+        echo "│ 🤖 ML PREDICTION                                            │"
+        echo "└─────────────────────────────────────────────────────────────┘"
+        if command -v jq &> /dev/null; then
+            echo "$line" | jq -C '{
+                time: .timestamp,
+                src: .src_ip,
+                dst: .dst_ip,
+                attack_type: .prediction.attack_type,
+                confidence: .prediction.confidence,
+                anomaly_score: .prediction.anomaly_score,
+                is_anomaly: .prediction.is_anomaly,
+                recommendation: .prediction.recommendation
+            }' 2>/dev/null || echo "$line"
+        else
+            echo "$line"
         fi
     fi
 done

@@ -2,13 +2,23 @@ from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER, DEAD_DISPATCHER, set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp
+from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp, tcp, udp
 from collections import defaultdict
 import os
+import sys
 import threading
 import json
 import time
 from datetime import datetime
+
+# Add ML module path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from ml.inference.predictor import MLPredictor
+    ML_AVAILABLE = True
+except ImportError as e:
+    ML_AVAILABLE = False
+    print(f"Warning: ML modules not available: {e}")
 
 class SimpleSwitch13(app_manager.RyuApp):
     """Learning switch with traffic mirroring to Suricata IDS and IP blocking"""
@@ -21,6 +31,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.blocked_ips = set()
         self.blocked_ips_file = '/tmp/blocked_ips.txt'
         self.alert_file = '/tmp/eve.json'
+        self.ml_alert_file = '/tmp/ml_alerts.json'  # ML predictions output for monitor.sh
         self.datapaths = {}
         self.alert_history = {}  # Track processed alerts: key=(sid, src_ip) -> last_seen_time
         self.alert_dedup_window = 60  # Seconds to suppress duplicate alerts for same SID+IP
@@ -31,8 +42,18 @@ class SimpleSwitch13(app_manager.RyuApp):
             'packets_processed': 0,
             'packets_blocked': 0,
             'alerts_processed': 0,
-            'ips_blocked': 0
+            'ips_blocked': 0,
+            'ml_predictions': 0,
+            'ml_anomalies': 0,
+            'ml_blocks': 0
         }
+        
+        # ML Integration
+        self.ml_enabled = False
+        self.ml_predictor = None
+        self.ml_block_threshold = 0.8  # Confidence threshold for auto-blocking
+        self.ml_prediction_interval = 10  # Predict every N packets per flow to reduce overhead
+        self._init_ml()
         
         # Load configurations
         self._load_suricata_port()
@@ -43,7 +64,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.monitor_thread.start()
         self.logger.info("=" * 60)
         self.logger.info("SDN-IDS Controller Started")
-        self.logger.info("Alert monitoring thread started")
+        self.logger.info("  Suricata alert monitoring: ✓ Active")
+        self.logger.info("  ML-based detection: %s", "✓ Active" if self.ml_enabled else "✗ Disabled")
         self.logger.info("=" * 60)
 
     def _load_suricata_port(self):
@@ -82,6 +104,212 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.stats['ips_blocked'] = len(self.blocked_ips)
         except Exception as e:
             self.logger.error("Error loading blocked IPs: %s", e)
+
+    def _init_ml(self):
+        """Initialize ML prediction pipeline"""
+        if not ML_AVAILABLE:
+            self.logger.warning("ML modules not available - ML-based detection disabled")
+            return
+        
+        try:
+            model_dir = "/home/kali/sdn-project/ml/models/trained"
+            self.ml_predictor = MLPredictor(
+                model_dir=model_dir,
+                anomaly_threshold=0.6,
+                classification_threshold=0.7
+            )
+            
+            if self.ml_predictor.load_models():
+                self.ml_enabled = True
+                self.logger.info("=" * 60)
+                self.logger.info("🤖 ML PREDICTION PIPELINE INITIALIZED")
+                status = self.ml_predictor.get_status()
+                self.logger.info("  Anomaly Detector: %s", 
+                               "✓ Ready" if status['anomaly_detector_ready'] else "✗ Not loaded")
+                self.logger.info("  Attack Classifier: %s", 
+                               "✓ Ready" if status['attack_classifier_ready'] else "✗ Not loaded")
+                self.logger.info("  LSTM Classifier: %s", 
+                               "✓ Ready" if status['lstm_classifier_ready'] else "✗ Not loaded")
+                self.logger.info("  Preprocessor: %s", 
+                               "✓ Ready" if status['preprocessor_ready'] else "✗ Not loaded")
+                self.logger.info("=" * 60)
+            else:
+                self.logger.warning("ML models could not be loaded - ML detection disabled")
+        except Exception as e:
+            self.logger.error("Error initializing ML pipeline: %s", e)
+            self.ml_enabled = False
+
+    def _extract_packet_features(self, pkt, ip_pkt, dpid, in_port):
+        """
+        Extract features from a packet for ML prediction.
+        
+        Returns tuple: (src_port, dst_port, protocol, packet_size, tcp_flags)
+        """
+        protocol = ip_pkt.proto
+        packet_size = len(pkt.data) if hasattr(pkt, 'data') else 0
+        src_port = 0
+        dst_port = 0
+        tcp_flags = 0
+        
+        # Extract TCP info
+        tcp_pkt = pkt.get_protocol(tcp.tcp)
+        if tcp_pkt:
+            src_port = tcp_pkt.src_port
+            dst_port = tcp_pkt.dst_port
+            # TCP flags: FIN=0x01, SYN=0x02, RST=0x04, PSH=0x08, ACK=0x10, URG=0x20
+            tcp_flags = tcp_pkt.bits
+        
+        # Extract UDP info
+        udp_pkt = pkt.get_protocol(udp.udp)
+        if udp_pkt:
+            src_port = udp_pkt.src_port
+            dst_port = udp_pkt.dst_port
+        
+        # For ICMP, ports stay at 0
+        icmp_pkt = pkt.get_protocol(icmp.icmp)
+        if icmp_pkt:
+            # Use ICMP type/code as pseudo-ports for flow tracking
+            src_port = icmp_pkt.type
+            dst_port = icmp_pkt.code if icmp_pkt.code else 0
+        
+        return src_port, dst_port, protocol, packet_size, tcp_flags
+
+    def _process_ml_prediction(self, pkt, ip_pkt, dpid, in_port):
+        """
+        Run ML prediction on a packet and take action if needed.
+        
+        Returns True if packet should be blocked, False otherwise.
+        """
+        if not self.ml_enabled or not self.ml_predictor:
+            return False
+        
+        try:
+            src_ip = ip_pkt.src
+            dst_ip = ip_pkt.dst
+            
+            # Extract packet features
+            src_port, dst_port, protocol, packet_size, tcp_flags = \
+                self._extract_packet_features(pkt, ip_pkt, dpid, in_port)
+            
+            # Get prediction from ML pipeline
+            result = self.ml_predictor.predict_from_packet_data(
+                src_ip=src_ip,
+                dst_ip=dst_ip,
+                src_port=src_port,
+                dst_port=dst_port,
+                protocol=protocol,
+                packet_size=packet_size,
+                tcp_flags=tcp_flags,
+                switch_id=dpid,
+                in_port=in_port
+            )
+            
+            # Result is None if not enough packets for prediction yet
+            if result is None:
+                # Log that we're accumulating packets for this flow
+                flow_key = f"{src_ip}:{src_port}->{dst_ip}:{dst_port}"
+                if hasattr(self.ml_predictor, 'flow_collector'):
+                    collector = self.ml_predictor.flow_collector
+                    if hasattr(collector, 'flows') and flow_key in collector.flows:
+                        pkt_count = collector.flows[flow_key].packet_count
+                        if pkt_count <= 3:  # Only log first few
+                            self.logger.info("🔄 [ML] Collecting packets for %s (count: %d/3)",
+                                           flow_key, pkt_count)
+                return False
+            
+            self.stats['ml_predictions'] += 1
+            self.logger.info("🤖 [ML] Prediction #%d: %s → %s | Type: %s (%.1f%%) | Anomaly: %.2f | Action: %s",
+                           self.stats['ml_predictions'], src_ip, dst_ip, 
+                           result.attack_type, result.attack_confidence * 100,
+                           result.anomaly_score, result.recommendation)
+            
+            # Write ML prediction to file for monitor.sh
+            self._write_ml_alert(result, src_ip, dst_ip)
+            
+            # Log anomalies
+            if result.is_anomaly:
+                self.stats['ml_anomalies'] += 1
+                self.logger.warning("🔍 [ML] Anomaly detected: %s → %s (score: %.2f)",
+                               src_ip, dst_ip, result.anomaly_score)
+            
+            # Check if we should block based on ML recommendation
+            if result.recommendation == 'block' and result.attack_confidence >= self.ml_block_threshold:
+                self.stats['ml_blocks'] += 1
+                self.logger.warning("=" * 60)
+                self.logger.warning("🤖 ML ATTACK DETECTED")
+                self.logger.warning("  Flow: %s", result.flow_key)
+                self.logger.warning("  RF Attack Type: %s (%.1f%%)", 
+                                  result.attack_type, result.attack_confidence * 100)
+                if result.lstm_attack_type != 'unknown':
+                    self.logger.warning("  LSTM Attack Type: %s (%.1f%%)", 
+                                      result.lstm_attack_type, result.lstm_confidence * 100)
+                self.logger.warning("  Anomaly Score: %.2f", result.anomaly_score)
+                self.logger.warning("  Probabilities: %s", result.class_probabilities)
+                self.logger.warning("=" * 60)
+                
+                # Block the source IP
+                attack_info = f"ML detected {result.attack_type}"
+                if result.lstm_attack_type != 'unknown':
+                    attack_info += f" / LSTM: {result.lstm_attack_type}"
+                self._block_ip_all_switches(src_ip, 
+                    f"{attack_info} (conf: {result.attack_confidence:.2f})")
+                return True
+            
+            # Log monitoring recommendations
+            elif result.recommendation == 'monitor':
+                lstm_info = f", LSTM: {result.lstm_attack_type}" if result.lstm_attack_type != 'unknown' else ""
+                self.logger.info("👁️ [ML] Monitoring: %s → %s (anomaly: %.2f, RF: %s%s)",
+                                src_ip, dst_ip, result.anomaly_score, result.attack_type, lstm_info)
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error("Error in ML prediction: %s", e)
+            return False
+
+    def _write_ml_alert(self, result, src_ip, dst_ip):
+        """Write ML prediction to JSON file for external monitoring"""
+        try:
+            ml_alert = {
+                "timestamp": datetime.now().isoformat(),
+                "event_type": "ml_prediction",
+                "src_ip": src_ip,
+                "dst_ip": dst_ip,
+                "prediction": {
+                    "attack_type": result.attack_type,
+                    "confidence": round(result.attack_confidence * 100, 1),
+                    "anomaly_score": round(result.anomaly_score, 2),
+                    "is_anomaly": result.is_anomaly,
+                    "recommendation": result.recommendation,
+                    "lstm_type": result.lstm_attack_type if result.lstm_attack_type != 'unknown' else None,
+                    "lstm_confidence": round(result.lstm_confidence * 100, 1) if result.lstm_attack_type != 'unknown' else None
+                },
+                "class_probabilities": {k: round(v * 100, 1) for k, v in result.class_probabilities.items()}
+            }
+            
+            with open(self.ml_alert_file, 'a') as f:
+                f.write(json.dumps(ml_alert) + '\n')
+            self.logger.info("📝 [ML] Alert written to %s", self.ml_alert_file)
+        except Exception as e:
+            self.logger.error("Could not write ML alert to file: %s", e)
+
+    def get_ml_status(self):
+        """Get ML subsystem status for monitoring"""
+        if not self.ml_enabled or not self.ml_predictor:
+            return {
+                'enabled': False,
+                'reason': 'ML not available' if not ML_AVAILABLE else 'ML not loaded'
+            }
+        
+        status = self.ml_predictor.get_status()
+        status['enabled'] = True
+        status['block_threshold'] = self.ml_block_threshold
+        status['controller_ml_stats'] = {
+            'predictions': self.stats['ml_predictions'],
+            'anomalies': self.stats['ml_anomalies'],
+            'blocks': self.stats['ml_blocks']
+        }
+        return status
 
     def _load_last_alert_position(self):
         """Load last processed position in alert file"""
@@ -425,6 +653,11 @@ class SimpleSwitch13(app_manager.RyuApp):
             # Log IPv4 packets with IP addresses (only non-blocked traffic)
             self.logger.debug("[IPv4] DPID=%s %s → %s (MAC: %s → %s)",
                            dpid, src_ip, dst_ip, src, dst)
+            
+            # ML-based threat detection
+            if self._process_ml_prediction(pkt, ip_pkt, dpid, in_port):
+                # ML recommended blocking this traffic
+                return
         
         # Don't process packets from Suricata to avoid loops
         if dpid in self.suricata_port and in_port == self.suricata_port[dpid]:
@@ -449,6 +682,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 actions.append(parser.OFPActionOutput(suricata_port))
         
         # Install flow if we know the destination (priority 10, above table-miss but below blocking)
+        # Use short idle_timeout (3s) so packets return to controller for ML analysis
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
             
@@ -458,11 +692,12 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.info("[LEARN] DPID=%s %s → %s port %s→%s%s",
                                dpid, ip_pkt.src, ip_pkt.dst, in_port, out_port, mirror_info)
             
+            # Short idle_timeout=3 for ML to see more packets during attacks
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 10, match, actions, msg.buffer_id, idle_timeout=30, log_flow=ip_pkt is not None)
+                self.add_flow(datapath, 10, match, actions, msg.buffer_id, idle_timeout=3, log_flow=ip_pkt is not None)
                 return
             else:
-                self.add_flow(datapath, 10, match, actions, idle_timeout=30, log_flow=ip_pkt is not None)
+                self.add_flow(datapath, 10, match, actions, idle_timeout=3, log_flow=ip_pkt is not None)
         
         # Send packet out
         data = None

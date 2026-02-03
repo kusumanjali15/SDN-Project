@@ -12,5 +12,5 @@ echo ""
 # Activate virtual environment
 source /home/kali/venvs/ryu-py310/bin/activate
 
-# Run with verbose logging (no --verbose flag, INFO level is default)
+# Run controller (INFO level logging - ML predictions will be visible)
 ryu-manager --ofp-tcp-listen-port 6653 "$PROJECT_DIR/controller/ryu_controller.py"
