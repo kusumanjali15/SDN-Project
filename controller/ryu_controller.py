@@ -276,15 +276,15 @@ class SimpleSwitch13(app_manager.RyuApp):
                 "src_ip": src_ip,
                 "dst_ip": dst_ip,
                 "prediction": {
-                    "attack_type": result.attack_type,
-                    "confidence": round(result.attack_confidence * 100, 1),
-                    "anomaly_score": round(result.anomaly_score, 2),
-                    "is_anomaly": result.is_anomaly,
-                    "recommendation": result.recommendation,
-                    "lstm_type": result.lstm_attack_type if result.lstm_attack_type != 'unknown' else None,
-                    "lstm_confidence": round(result.lstm_confidence * 100, 1) if result.lstm_attack_type != 'unknown' else None
+                    "attack_type": str(result.attack_type),
+                    "confidence": round(float(result.attack_confidence) * 100, 1),
+                    "anomaly_score": round(float(result.anomaly_score), 2),
+                    "is_anomaly": bool(result.is_anomaly),  # Convert numpy.bool_ to Python bool
+                    "recommendation": str(result.recommendation),
+                    "lstm_type": str(result.lstm_attack_type) if result.lstm_attack_type != 'unknown' else None,
+                    "lstm_confidence": round(float(result.lstm_confidence) * 100, 1) if result.lstm_attack_type != 'unknown' else None
                 },
-                "class_probabilities": {k: round(v * 100, 1) for k, v in result.class_probabilities.items()}
+                "class_probabilities": {str(k): round(float(v) * 100, 1) for k, v in result.class_probabilities.items()}
             }
             
             with open(self.ml_alert_file, 'a') as f:
