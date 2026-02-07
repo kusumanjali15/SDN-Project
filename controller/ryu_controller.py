@@ -32,6 +32,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.blocked_ips_file = '/tmp/blocked_ips.txt'
         self.alert_file = '/tmp/eve.json'
         self.ml_alert_file = '/tmp/ml_alerts.json'  # ML predictions output for monitor.sh
+        self.command_file = '/tmp/controller_commands.txt'  # Command file for unblock/management
         self.datapaths = {}
         self.alert_history = {}  # Track processed alerts: key=(sid, src_ip) -> last_seen_time
         self.alert_dedup_window = 60  # Seconds to suppress duplicate alerts for same SID+IP
@@ -51,8 +52,12 @@ class SimpleSwitch13(app_manager.RyuApp):
         # ML Integration
         self.ml_enabled = False
         self.ml_predictor = None
-        self.ml_block_threshold = 0.8  # Confidence threshold for auto-blocking
+        self.ml_block_threshold = 0.3  # Confidence threshold for auto-blocking (lowered for better detection)
         self.ml_prediction_interval = 10  # Predict every N packets per flow to reduce overhead
+        
+        # 🧩 FIX 1: PER-FLOW ML STATE (moved to correct location)
+        self.flow_ml_state = {}
+        
         self._init_ml()
         
         # Load configurations
@@ -62,10 +67,16 @@ class SimpleSwitch13(app_manager.RyuApp):
         # Start alert monitoring thread
         self.monitor_thread = threading.Thread(target=self._monitor_alerts, daemon=True)
         self.monitor_thread.start()
+        
+        # Start command monitoring thread (for unblock commands)
+        self.command_thread = threading.Thread(target=self._monitor_commands, daemon=True)
+        self.command_thread.start()
+        
         self.logger.info("=" * 60)
         self.logger.info("SDN-IDS Controller Started")
         self.logger.info("  Suricata alert monitoring: ✓ Active")
         self.logger.info("  ML-based detection: %s", "✓ Active" if self.ml_enabled else "✗ Disabled")
+        self.logger.info("  Command interface: ✓ Active (%s)", self.command_file)
         self.logger.info("=" * 60)
 
     def _load_suricata_port(self):
@@ -112,7 +123,9 @@ class SimpleSwitch13(app_manager.RyuApp):
             return
         
         try:
-            model_dir = "/home/kali/sdn-project/ml/models/trained"
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            model_dir = os.path.join(base_dir, "ml", "models", "trained")
+
             self.ml_predictor = MLPredictor(
                 model_dir=model_dir,
                 anomaly_threshold=0.6,
@@ -138,6 +151,11 @@ class SimpleSwitch13(app_manager.RyuApp):
         except Exception as e:
             self.logger.error("Error initializing ML pipeline: %s", e)
             self.ml_enabled = False
+
+    # 🧩 FIX 1: Helper function for flow key
+    def _get_flow_key(self, src_ip, dst_ip):
+        """Generate unique flow key for per-flow ML state"""
+        return f"{src_ip}->{dst_ip}"
 
     def _extract_packet_features(self, pkt, ip_pkt, dpid, in_port):
         """
@@ -187,12 +205,19 @@ class SimpleSwitch13(app_manager.RyuApp):
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
             
+            # 🧩 FIX 2: STOP ML IF IP IS BLOCKED
+            if src_ip in self.blocked_ips:
+                self.logger.debug("⛔ Skipping ML for blocked IP: %s", src_ip)
+                return False
+            
             # Extract packet features
             src_port, dst_port, protocol, packet_size, tcp_flags = \
                 self._extract_packet_features(pkt, ip_pkt, dpid, in_port)
             
             # Get prediction from ML pipeline
+            # 🧩 CRITICAL FIX: Include dpid:in_port in flow_id for per-home isolation
             result = self.ml_predictor.predict_from_packet_data(
+                # flow_id=f"{dpid}:{in_port}:{src_ip}->{dst_ip}",
                 src_ip=src_ip,
                 dst_ip=dst_ip,
                 src_port=src_port,
@@ -255,6 +280,24 @@ class SimpleSwitch13(app_manager.RyuApp):
                     f"{attack_info} (conf: {result.attack_confidence:.2f})")
                 return True
             
+            # ADDITIONAL TRIGGER: High anomaly score + attack classification (even with lower confidence)
+            # This catches attacks that anomaly detector is very sure about
+            elif (result.is_anomaly and 
+                  result.anomaly_score >= 0.95):  # Very low threshold if anomaly is certain
+                self.stats['ml_blocks'] += 1
+                self.logger.warning("=" * 60)
+                self.logger.warning("🤖 ANOMALY-BASED BLOCK TRIGGERED")
+                self.logger.warning("  Flow: %s", result.flow_key)
+                self.logger.warning("  Attack Type: %s (%.1f%%)", 
+                                  result.attack_type, result.attack_confidence * 100)
+                self.logger.warning("  ⚠️ VERY HIGH Anomaly Score: %.2f", result.anomaly_score)
+                self.logger.warning("  Reason: Anomaly detector highly confident")
+                self.logger.warning("=" * 60)
+                
+                attack_info = f"Anomaly-based: {result.attack_type} (anomaly: {result.anomaly_score:.2f})"
+                self._block_ip_all_switches(src_ip, attack_info)
+                return True
+            
             # Log monitoring recommendations
             elif result.recommendation == 'monitor':
                 lstm_info = f", LSTM: {result.lstm_attack_type}" if result.lstm_attack_type != 'unknown' else ""
@@ -266,6 +309,21 @@ class SimpleSwitch13(app_manager.RyuApp):
         except Exception as e:
             self.logger.error("Error in ML prediction: %s", e)
             return False
+
+    # 🧩 FIX 3: SANITIZE DATA FOR JSON
+    def _sanitize_for_json(self, data):
+        """Convert data to JSON-serializable format"""
+        clean = {}
+        for k, v in data.items():
+            if isinstance(v, (bool, int, float, str, type(None))):
+                clean[k] = v
+            elif isinstance(v, dict):
+                clean[k] = self._sanitize_for_json(v)
+            elif hasattr(v, 'item'):  # numpy types
+                clean[k] = v.item()
+            else:
+                clean[k] = str(v)
+        return clean
 
     def _write_ml_alert(self, result, src_ip, dst_ip):
         """Write ML prediction to JSON file for external monitoring"""
@@ -287,9 +345,13 @@ class SimpleSwitch13(app_manager.RyuApp):
                 "class_probabilities": {k: round(v * 100, 1) for k, v in result.class_probabilities.items()}
             }
             
+            # 🧩 FIX 3: SANITIZE BEFORE WRITING
+            safe_alert = self._sanitize_for_json(ml_alert)
+            
             with open(self.ml_alert_file, 'a') as f:
-                f.write(json.dumps(ml_alert) + '\n')
-            self.logger.info("📝 [ML] Alert written to %s", self.ml_alert_file)
+                json.dump(safe_alert, f)
+                f.write('\n')
+            self.logger.debug("📝 [ML] Alert written to %s", self.ml_alert_file)
         except Exception as e:
             self.logger.error("Could not write ML alert to file: %s", e)
 
@@ -407,6 +469,70 @@ class SimpleSwitch13(app_manager.RyuApp):
         for key in expired_keys:
             del self.alert_history[key]
 
+    def _monitor_commands(self):
+        """Background thread that monitors command file for unblock/management commands"""
+        self.logger.info("Command monitor ready - watching: %s", self.command_file)
+        
+        last_position = 0
+        
+        while True:
+            try:
+                if os.path.exists(self.command_file):
+                    file_size = os.path.getsize(self.command_file)
+                    
+                    if file_size > last_position:
+                        with open(self.command_file, 'r') as f:
+                            f.seek(last_position)
+                            lines = f.readlines()
+                            last_position = f.tell()
+                        
+                        for line in lines:
+                            line = line.strip()
+                            if line:
+                                self._process_command(line)
+                    
+                    elif file_size < last_position:
+                        # File was truncated/rotated
+                        self.logger.info("Command file was reset")
+                        last_position = 0
+                
+                time.sleep(1)  # Check every second
+                
+            except Exception as e:
+                self.logger.error("Error monitoring commands: %s", e)
+                time.sleep(5)
+    
+    def _process_command(self, command_line):
+        """Process a single command from the command file"""
+        try:
+            if ':' not in command_line:
+                self.logger.warning("Invalid command format: %s", command_line)
+                return
+            
+            cmd, arg = command_line.split(':', 1)
+            cmd = cmd.strip().upper()
+            arg = arg.strip()
+            
+            self.logger.info("📥 Received command: %s %s", cmd, arg)
+            
+            if cmd == 'UNBLOCK':
+                ip_address = arg
+                if self._unblock_ip_all_switches(ip_address):
+                    self.logger.info("✅ Command executed successfully: UNBLOCK %s", ip_address)
+                else:
+                    self.logger.warning("⚠️ Command failed: UNBLOCK %s", ip_address)
+            
+            elif cmd == 'BLOCK':
+                ip_address = arg
+                self._block_ip_all_switches(ip_address, "Manual block via command")
+                self.logger.info("✅ Command executed successfully: BLOCK %s", ip_address)
+            
+            else:
+                self.logger.warning("Unknown command: %s", cmd)
+                
+        except Exception as e:
+            self.logger.error("Error processing command '%s': %s", command_line, e)
+
     def _process_alert(self, alert_data):
         """Process a single Suricata alert and block IPs if necessary"""
         try:
@@ -466,6 +592,18 @@ class SimpleSwitch13(app_manager.RyuApp):
         self._save_blocked_ips()
         self.stats['ips_blocked'] = len(self.blocked_ips)
         
+        # 🧩 FIX 4: CLEAN UP FLOW STATE WHEN BLOCKING
+        keys_to_delete = [
+            k for k in self.flow_ml_state
+            if k.startswith(ip_address)
+        ]
+        for k in keys_to_delete:
+            del self.flow_ml_state[k]
+        
+        if keys_to_delete:
+            self.logger.info("🧹 Cleaned up %d ML flow states for blocked IP: %s", 
+                           len(keys_to_delete), ip_address)
+        
         blocked_count = 0
         for dpid, datapath in self.datapaths.items():
             try:
@@ -501,6 +639,99 @@ class SimpleSwitch13(app_manager.RyuApp):
         
         self.logger.info("  ✓ Installed block rules for %s on DPID=%s (priority=%d)", 
                        ip_address, datapath.id, priority)
+
+    def _remove_ip_block_rules(self, datapath, ip_address):
+        """Remove blocking flow rules for a specific IP from a switch"""
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        
+        # CRITICAL: Must match EXACT priority (200) used when blocking
+        priority = 200
+        
+        # Remove block rule for packets FROM this IP (source)
+        match_src = parser.OFPMatch(eth_type=0x0800, ipv4_src=ip_address)
+        mod_src = parser.OFPFlowMod(
+            datapath=datapath,
+            command=ofproto.OFPFC_DELETE,
+            out_port=ofproto.OFPP_ANY,
+            out_group=ofproto.OFPG_ANY,
+            priority=priority,
+            match=match_src
+        )
+        datapath.send_msg(mod_src)
+        
+        # Remove block rule for packets TO this IP (destination)
+        match_dst = parser.OFPMatch(eth_type=0x0800, ipv4_dst=ip_address)
+        mod_dst = parser.OFPFlowMod(
+            datapath=datapath,
+            command=ofproto.OFPFC_DELETE,
+            out_port=ofproto.OFPP_ANY,
+            out_group=ofproto.OFPG_ANY,
+            priority=priority,
+            match=match_dst
+        )
+        datapath.send_msg(mod_dst)
+        
+        self.logger.info("  ✓ Removed block rules for %s on DPID=%s (priority=%d)", 
+                       ip_address, datapath.id, priority)
+
+    def _unblock_ip_all_switches(self, ip_address):
+        """Unblock an IP address on all connected switches"""
+        if ip_address not in self.blocked_ips:
+            self.logger.warning("⚠️ IP %s is not currently blocked", ip_address)
+            return False
+        
+        # Step 1: Remove from controller memory
+        self.blocked_ips.remove(ip_address)
+        self._save_blocked_ips()
+        self.stats['ips_blocked'] = len(self.blocked_ips)
+        
+        # Step 2: Clean up ML flow state (make future attacks look fresh)
+        keys_to_delete = [
+            k for k in self.flow_ml_state
+            if k.startswith(ip_address)
+        ]
+        for k in keys_to_delete:
+            del self.flow_ml_state[k]
+        
+        if keys_to_delete:
+            self.logger.info("🧹 Cleaned up %d ML flow states for unblocked IP: %s", 
+                           len(keys_to_delete), ip_address)
+        
+        # Step 3: CRITICAL - Remove DROP rules from all switches
+        unblocked_count = 0
+        for dpid, datapath in self.datapaths.items():
+            try:
+                self._remove_ip_block_rules(datapath, ip_address)
+                unblocked_count += 1
+            except Exception as e:
+                self.logger.error("Failed to unblock IP %s on DPID=%s: %s", 
+                                ip_address, dpid, e)
+        
+        # Step 4: Clear dropped packet log so we can see new traffic
+        if ip_address in self.dropped_packet_log:
+            del self.dropped_packet_log[ip_address]
+        
+        self.logger.warning("=" * 60)
+        self.logger.warning("🔓 IP UNBLOCKED: %s", ip_address)
+        self.logger.warning("   Applied to: %d switches", unblocked_count)
+        self.logger.warning("   Total blocked IPs: %d", len(self.blocked_ips))
+        self.logger.warning("=" * 60)
+        
+        return True
+
+    def unblock_ip(self, ip_address):
+        """
+        Public method to unblock an IP address.
+        Can be called manually or via API/command.
+        
+        Args:
+            ip_address: IP address to unblock (string)
+            
+        Returns:
+            bool: True if unblocked successfully, False otherwise
+        """
+        return self._unblock_ip_all_switches(ip_address)
 
     def _save_blocked_ips(self):
         """Save blocked IPs to file"""
