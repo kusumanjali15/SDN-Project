@@ -23,7 +23,7 @@
         "id": "tab_soc",
         "type": "tab",
         "label": "SOC Office (Neighborhood)",
-        "disabled": false,
+        "disabled": true,
         "info": "Neighborhood SOC Office: Intake -> Normalize -> Classify -> Dispatch, plus SOC Dashboard"
     },
     {
@@ -428,13 +428,12 @@
         "nodes": [
             "soc_to_dispatch",
             "soc_tcp_out",
-            "d260aba82e67835a",
-            "fbbd70f6d7695e77"
+            "d260aba82e67835a"
         ],
         "x": 1274,
         "y": 159,
-        "w": 682,
-        "h": 282
+        "w": 672,
+        "h": 82
     },
     {
         "id": "fad336ca632672bf",
@@ -534,8 +533,8 @@
             "fd6418d01e645c5d",
             "18cfba469f69b665"
         ],
-        "x": 844,
-        "y": 799,
+        "x": 2164,
+        "y": 239,
         "w": 532,
         "h": 342
     },
@@ -1215,8 +1214,8 @@
         "links": [
             "soc_in_h1"
         ],
-        "x": 1270,
-        "y": 540,
+        "x": 1280,
+        "y": 440,
         "wires": [],
         "l": true
     },
@@ -1229,8 +1228,8 @@
         "links": [
             "e9203627726df0d0"
         ],
-        "x": 990,
-        "y": 540,
+        "x": 1290,
+        "y": 380,
         "wires": [],
         "l": true
     },
@@ -1243,8 +1242,8 @@
         "links": [
             "55352d531df0ba02"
         ],
-        "x": 885,
-        "y": 940,
+        "x": 2205,
+        "y": 380,
         "wires": [
             [
                 "a9a1014b82ccbd60",
@@ -1278,8 +1277,8 @@
         "seg2": "",
         "diff": false,
         "className": "",
-        "x": 1270,
-        "y": 840,
+        "x": 2590,
+        "y": 280,
         "wires": []
     },
     {
@@ -1300,8 +1299,8 @@
         "font": "",
         "fontSize": 16,
         "color": "#000000",
-        "x": 1230,
-        "y": 1040,
+        "x": 2550,
+        "y": 480,
         "wires": []
     },
     {
@@ -1317,8 +1316,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1090,
-        "y": 940,
+        "x": 2410,
+        "y": 380,
         "wires": [
             [
                 "edcc1fa6db579230"
@@ -1338,8 +1337,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1070,
-        "y": 1000,
+        "x": 2390,
+        "y": 440,
         "wires": [
             [
                 "a0229c033a340e13"
@@ -1359,8 +1358,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1040,
-        "y": 1100,
+        "x": 2360,
+        "y": 540,
         "wires": [
             [
                 "18cfba469f69b665"
@@ -1383,8 +1382,8 @@
         "resendOnRefresh": true,
         "templateScope": "local",
         "className": "",
-        "x": 1270,
-        "y": 1100,
+        "x": 2590,
+        "y": 540,
         "wires": [
             []
         ]
@@ -1422,8 +1421,8 @@
         "base64": false,
         "end": false,
         "tls": "",
-        "x": 1070,
-        "y": 180,
+        "x": 1840,
+        "y": 380,
         "wires": []
     },
     {
@@ -1431,37 +1430,162 @@
         "type": "function",
         "z": "5eaf4de03ec59a24",
         "name": "Network Dispatcher",
-        "func": "// Home-1 Network Dispatcher\nmsg.ip = \"10.0.1.1\";     // h1\nmsg.port = 7001;\n\nmsg.payload = JSON.stringify(msg.payload);\nreturn msg;\n",
+        "func": "\nmsg.ip = \"10.0.1.1\";   // h1\nmsg.port = 7001;\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1050,
-        "y": 280,
+        "x": 1430,
+        "y": 300,
         "wires": [
             [
-                "31df12ffffe5dda9",
-                "2931fe3d50ad52d0"
+                "02b49ce6d9def00a"
             ]
         ]
     },
     {
-        "id": "2931fe3d50ad52d0",
+        "id": "02b49ce6d9def00a",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "name": "function 1",
+        "func": "// function_1 — SINGLE SOURCE OF TRUTH\n\nlet mode = flow.get(\"attack_mode\") || \"normal\";\n\nif (mode === \"icmp\") {\n    msg.payload = \"ATTACK_ICMP\\n\";\n}\nelse if (mode === \"syn\") {\n    msg.payload = \"ATTACK_SYN\\n\";\n}\nelse {\n    // Normal IoT data\n    if (typeof msg.payload !== \"string\") {\n        msg.payload = JSON.stringify(msg.payload);\n    }\n    msg.payload += \"\\n\";\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1640,
+        "y": 240,
+        "wires": [
+            [
+                "31df12ffffe5dda9",
+                "9d89aa6152a05a3e"
+            ]
+        ]
+    },
+    {
+        "id": "9d89aa6152a05a3e",
         "type": "debug",
         "z": "5eaf4de03ec59a24",
-        "name": "debug 4",
+        "name": "debug 5",
         "active": true,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
-        "complete": "false",
+        "complete": "payload",
+        "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1290,
-        "y": 300,
+        "x": 1710,
+        "y": 600,
         "wires": []
+    },
+    {
+        "id": "7cbf269411c170e7",
+        "type": "ui_switch",
+        "z": "5eaf4de03ec59a24",
+        "name": "",
+        "label": "switch_icmp",
+        "tooltip": "",
+        "group": "e9a78a20bc6286ae",
+        "order": 4,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "decouple": "false",
+        "topic": "icmp",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": false,
+        "className": "",
+        "x": 1190,
+        "y": 680,
+        "wires": [
+            [
+                "f0563c97fcfce4be"
+            ]
+        ]
+    },
+    {
+        "id": "f0563c97fcfce4be",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "name": "icmp_function ",
+        "func": "// icmp_function\nif (msg.payload === true) {\n    flow.set(\"attack_mode\", \"icmp\");\n} else {\n    flow.set(\"attack_mode\", \"normal\");\n}\nreturn null;   // IMPORTANT: do not forward data\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1400,
+        "y": 680,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "53f4234bd854dd75",
+        "type": "ui_switch",
+        "z": "5eaf4de03ec59a24",
+        "name": "",
+        "label": "switch_TCP_SYN_flood",
+        "tooltip": "",
+        "group": "e9a78a20bc6286ae",
+        "order": 4,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "decouple": "false",
+        "topic": "tcp_syn",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": false,
+        "className": "",
+        "x": 1170,
+        "y": 820,
+        "wires": [
+            [
+                "8f8025050c8b4594"
+            ]
+        ]
+    },
+    {
+        "id": "8f8025050c8b4594",
+        "type": "function",
+        "z": "5eaf4de03ec59a24",
+        "name": "TCP_syn_function ",
+        "func": "// tcp_syn_function\nif (msg.payload === true) {\n    flow.set(\"attack_mode\", \"syn\");\n} else {\n    flow.set(\"attack_mode\", \"normal\");\n}\nreturn null;   // IMPORTANT\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1430,
+        "y": 820,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "presence2_inject",
@@ -2045,8 +2169,7 @@
         "y": 740,
         "wires": [
             [
-                "43658b2c48908c17",
-                "77b3cf6d8861af3b"
+                "ebdc1391a3b9f846"
             ]
         ]
     },
@@ -2061,25 +2184,81 @@
         "base64": false,
         "end": false,
         "tls": "",
-        "x": 1050,
+        "x": 1040,
         "y": 840,
         "wires": []
     },
     {
-        "id": "77b3cf6d8861af3b",
-        "type": "debug",
+        "id": "fa9b7ad9b2344bcf",
+        "type": "ui_switch",
         "z": "tab_home2",
-        "name": "debug 3",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "false",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1230,
-        "y": 700,
-        "wires": []
+        "name": "",
+        "label": "switch_icmp",
+        "tooltip": "",
+        "group": "0731a6ef08a5a174",
+        "order": 4,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "decouple": "false",
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "attack",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "normal",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "animate": false,
+        "className": "",
+        "x": 1410,
+        "y": 380,
+        "wires": [
+            [
+                "a870dd3d5c508741"
+            ]
+        ]
+    },
+    {
+        "id": "a870dd3d5c508741",
+        "type": "function",
+        "z": "tab_home2",
+        "name": "icmp_function ",
+        "func": "// Store attack mode from dashboard switch\nflow.set(\"attack_mode\", msg.payload);\nnode.status({text: \"mode=\" + msg.payload});\nreturn null;   // VERY IMPORTANT\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1620,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ebdc1391a3b9f846",
+        "type": "function",
+        "z": "tab_home2",
+        "name": "function 2",
+        "func": "let mode = flow.get(\"attack_mode\") || \"normal\";\n\nif (mode === \"attack\") {\n  msg.payload = \"PING_FLOOD h1 h3\\n\";   // IMPORTANT: newline\n} else {\n  if (typeof msg.payload !== \"string\") {\n    msg.payload = JSON.stringify(msg.payload);\n  }\n  msg.payload = msg.payload + \"\\n\";     // IMPORTANT: newline\n}\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 780,
+        "wires": [
+            [
+                "43658b2c48908c17"
+            ]
+        ]
     },
     {
         "id": "presence3_inject",
@@ -2527,8 +2706,8 @@
         "base64": false,
         "end": false,
         "tls": "",
-        "x": 1230,
-        "y": 680,
+        "x": 1540,
+        "y": 640,
         "wires": []
     },
     {
@@ -2547,26 +2726,81 @@
         "y": 600,
         "wires": [
             [
-                "aa33979122fdc0e6",
-                "ec0b7f70693ddac8"
+                "7bce729ed1f24959"
             ]
         ]
     },
     {
-        "id": "ec0b7f70693ddac8",
-        "type": "debug",
+        "id": "16f74e89e377f7e3",
+        "type": "ui_switch",
         "z": "tab_home3",
-        "name": "debug 2",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "false",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1530,
+        "name": "",
+        "label": "switch_icmp",
+        "tooltip": "",
+        "group": "87b77888e7087783",
+        "order": 4,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "decouple": "false",
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "attack",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "normal",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "animate": false,
+        "className": "",
+        "x": 1730,
+        "y": 520,
+        "wires": [
+            [
+                "330ee7c1d235fb25"
+            ]
+        ]
+    },
+    {
+        "id": "330ee7c1d235fb25",
+        "type": "function",
+        "z": "tab_home3",
+        "name": "icmp_function ",
+        "func": "// Store attack mode from dashboard switch\nflow.set(\"attack_mode\", msg.payload);\nnode.status({text: \"mode=\" + msg.payload});\nreturn null;   // VERY IMPORTANT\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1940,
         "y": 560,
-        "wires": []
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "7bce729ed1f24959",
+        "type": "function",
+        "z": "tab_home3",
+        "name": "function 3",
+        "func": "let mode = flow.get(\"attack_mode\") || \"normal\";\n\nif (mode === \"attack\") {\n  msg.payload = \"PING_FLOOD h1 h3\\n\";   // IMPORTANT: newline\n} else {\n  if (typeof msg.payload !== \"string\") {\n    msg.payload = JSON.stringify(msg.payload);\n  }\n  msg.payload = msg.payload + \"\\n\";     // IMPORTANT: newline\n}\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1240,
+        "y": 680,
+        "wires": [
+            [
+                "aa33979122fdc0e6"
+            ]
+        ]
     },
     {
         "id": "c_room_intake",
@@ -2989,27 +3223,9 @@
         "y": 200,
         "wires": [
             [
-                "soc_tcp_out",
-                "fbbd70f6d7695e77"
+                "soc_tcp_out"
             ]
         ]
-    },
-    {
-        "id": "fbbd70f6d7695e77",
-        "type": "debug",
-        "z": "tab_soc",
-        "g": "a4f59552ccdf4055",
-        "name": "debug 1",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "false",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1850,
-        "y": 400,
-        "wires": []
     },
     {
         "id": "433b5780c2d21e1e",
@@ -3183,7 +3399,7 @@
         ]
     },
     {
-        "id": "cf661ec7f2e5a6a4",
+        "id": "f666e7e0bfd9c505",
         "type": "global-config",
         "env": [],
         "modules": {
