@@ -81,11 +81,16 @@ class MLPredictor:
     """
     
     def __init__(self,
-                 model_dir: str = "/home/kali/sdn-project/ml/models/trained",
-                 anomaly_threshold: float = 0.6,
-                 classification_threshold: float = 0.7):
+                model_dir: str = "/home/reddykalilinux/SDN-PROJECT/SDN-Project/ml/models/trained",
+                anomaly_threshold: float = 0.5,
+                classification_threshold: float = 0.60):
         """
         Initialize the ML predictor.
+        
+        Args:
+            model_dir: Directory containing trained models
+            anomaly_threshold: Threshold for anomaly detection (0-1), default 0.5
+            classification_threshold: Confidence threshold for attack classification, default 0.60 (60%)
         
         Args:
             model_dir: Directory containing trained models
@@ -300,12 +305,12 @@ class MLPredictor:
         - No anomaly + Normal classified -> ALLOW
         """
         attack_detected = result.attack_type != 'normal'
-        high_confidence = result.attack_confidence > self.classification_threshold
-        high_anomaly = result.anomaly_score > self.anomaly_threshold
+        high_confidence = result.attack_confidence >= self.classification_threshold
+        high_anomaly = result.anomaly_score >= self.anomaly_threshold
         
         # LSTM attack detection with high confidence
         lstm_attack = result.lstm_attack_type not in ['normal', 'unknown', '']
-        lstm_high_conf = result.lstm_confidence > self.classification_threshold
+        lstm_high_conf = result.lstm_confidence >= self.classification_threshold
         
         # Strong signal from Random Forest classifier - trust it
         if attack_detected and high_confidence:
@@ -392,7 +397,6 @@ class MLPredictor:
         except Exception as e:
             self.logger.debug("LSTM prediction error: %s", e)
             return None
-        return 'allow'
     
     def predict_from_packet_data(self,
                                   src_ip: str,

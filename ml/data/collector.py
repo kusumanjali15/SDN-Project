@@ -283,10 +283,17 @@ class FlowCollector:
         """
         Extract feature vector from a flow for ML models.
         
-        Returns a list of numerical features suitable for
-        anomaly detection models.
+        IMPORTANT: Order must match the training data CSV column order!
+        CSV columns after excluding src_ip, dst_ip, label:
+        src_port, dst_port, protocol, duration, packet_count, byte_count,
+        packets_per_second, bytes_per_second, avg_packet_size, min_packet_size,
+        max_packet_size, iat_mean, iat_std, iat_min, iat_max, syn_count,
+        ack_count, fin_count, rst_count, psh_count
         """
         return [
+            float(flow.src_port),
+            float(flow.dst_port),
+            float(flow.protocol),
             flow.duration,
             flow.packet_count,
             flow.byte_count,
@@ -304,14 +311,14 @@ class FlowCollector:
             flow.fin_count,
             flow.rst_count,
             flow.psh_count,
-            float(flow.protocol),
-            float(flow.src_port),
-            float(flow.dst_port),
         ]
     
     def get_feature_names(self) -> List[str]:
-        """Get names of features returned by get_flow_features"""
+        """Get names of features returned by get_flow_features (matches CSV order)"""
         return [
+            "src_port",
+            "dst_port",
+            "protocol",
             "duration",
             "packet_count",
             "byte_count",
@@ -329,9 +336,6 @@ class FlowCollector:
             "fin_count",
             "rst_count",
             "psh_count",
-            "protocol",
-            "src_port",
-            "dst_port",
         ]
     
     def save_flows_to_csv(self, filename: Optional[str] = None, 

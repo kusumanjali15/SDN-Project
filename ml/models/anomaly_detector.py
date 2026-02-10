@@ -102,17 +102,19 @@ class AnomalyDetector:
             X: Feature matrix
             
         Returns:
-            Tuple of (is_anomaly boolean array, confidence scores)
+            Tuple of (is_anomaly boolean array, anomaly_score 0-1)
         """
-        scores = self.predict_proba(X)
+        scores = self.predict_proba(X)  # Raw Isolation Forest scores
         predictions = self.predict(X)
         
-        # Convert scores to confidence (0-1 range, higher = more anomalous)
-        # Isolation Forest scores are typically in range [-0.5, 0.5]
-        confidence = 1 - (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
+        # Convert Isolation Forest scores to 0-1 anomaly scores
+        # IF scores: typically -0.5 (very anomalous) to +0.5 (very normal)
+        # We want: 0 (normal) to 1 (very anomalous)
+        # Formula: anomaly_score = 0.5 - score (clamped to 0-1)
+        anomaly_score = np.clip(0.5 - scores, 0, 1)
         
         is_anomaly = predictions == -1
-        return is_anomaly, confidence
+        return is_anomaly, anomaly_score
     
     def save(self, filepath: str):
         """Save the model to a file"""
