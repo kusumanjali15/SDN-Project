@@ -52,7 +52,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         # ML Integration
         self.ml_enabled = False
         self.ml_predictor = None
-        self.ml_block_threshold = 0.3  # Confidence threshold for auto-blocking (lowered for better detection)
+        self.ml_block_threshold = 0.60  # Confidence threshold for auto-blocking (60% for realistic detection)
         self.ml_prediction_interval = 10  # Predict every N packets per flow to reduce overhead
         
         # 🧩 FIX 1: PER-FLOW ML STATE (moved to correct location)
@@ -128,8 +128,8 @@ class SimpleSwitch13(app_manager.RyuApp):
 
             self.ml_predictor = MLPredictor(
                 model_dir=model_dir,
-                anomaly_threshold=0.6,
-                classification_threshold=0.7
+                anomaly_threshold=0.5,
+                classification_threshold=0.60  # 60% confidence to block
             )
             
             if self.ml_predictor.load_models():
@@ -199,6 +199,12 @@ class SimpleSwitch13(app_manager.RyuApp):
         Returns True if packet should be blocked, False otherwise.
         """
         if not self.ml_enabled or not self.ml_predictor:
+            return False
+        
+        # QUICK FIX: Skip normal ICMP pings (protocol 1) - only analyze TCP/UDP
+        # This prevents normal pings from being blocked during demo
+        # ICMP floods will still be caught by Suricata
+        if ip_pkt.proto == 1:  # ICMP
             return False
         
         try:
