@@ -1,5 +1,6 @@
 #!/bin/bash
 # Configure OVS Port Mirroring for Suricata
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
 echo "=== Configuring OVS Port Mirroring ==="
 
@@ -11,14 +12,14 @@ if ! pgrep -f "mininet" > /dev/null; then
 fi
 
 # Check if Suricata port info exists
-if [ ! -f /tmp/suricata_port.txt ]; then
+if [ ! -f ${SDN_RUNTIME_DIR}/suricata_port.txt ]; then
     echo "❌ Error: Suricata port info not found!"
-    echo "Make sure topology has started and created /tmp/suricata_port.txt"
+    echo "Make sure topology has started and created ${SDN_RUNTIME_DIR}/suricata_port.txt"
     exit 1
 fi
 
 # Read Suricata port configuration
-SURICATA_INFO=$(cat /tmp/suricata_port.txt)
+SURICATA_INFO=$(cat ${SDN_RUNTIME_DIR}/suricata_port.txt)
 DPID=$(echo $SURICATA_INFO | cut -d',' -f1)
 SURICATA_PORT=$(echo $SURICATA_INFO | cut -d',' -f2)
 

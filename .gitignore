@@ -31,3 +31,12 @@ Thumbs.db
 
 # Mininet
 *.pyc
+
+# Machine-specific settings and runtime output (never commit)
+.env
+runtime/
+logs/
+data/captures/
+*.pcap
+.venv/
+venv/

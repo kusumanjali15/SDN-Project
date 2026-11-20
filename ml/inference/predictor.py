@@ -22,6 +22,10 @@ import pickle
 # Import local modules
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from config import settings
 
 from data.collector import FlowStats, FlowCollector
 from data.preprocessor import FlowPreprocessor
@@ -81,7 +85,7 @@ class MLPredictor:
     """
     
     def __init__(self,
-                model_dir: str = "/home/reddykalilinux/SDN-PROJECT/SDN-Project/ml/models/trained",
+                model_dir: str = str(settings.MODEL_DIR),
                 anomaly_threshold: float = 0.5,
                 classification_threshold: float = 0.60):
         """
@@ -537,7 +541,7 @@ class MLPredictor:
 
 
 # Convenience function for quick testing
-def create_predictor(model_dir: str = "/home/kali/sdn-project/ml/models/trained") -> MLPredictor:
+def create_predictor(model_dir: str = str(settings.MODEL_DIR)) -> MLPredictor:
     """Create and load a predictor"""
     predictor = MLPredictor(model_dir=model_dir)
     predictor.load_models()

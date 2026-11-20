@@ -1,7 +1,8 @@
 #!/bin/bash
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
 # Script to manage blocked IPs for Ryu Controller
-BLOCKED_IPS_FILE="/tmp/blocked_ips.txt"
+BLOCKED_IPS_FILE="${SDN_RUNTIME_DIR}/blocked_ips.txt"
 
 # Function to display usage
 usage() {

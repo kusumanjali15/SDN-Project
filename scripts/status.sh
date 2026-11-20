@@ -1,5 +1,6 @@
 #!/bin/bash
 # Quick status check
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
 echo "=== SDN Status ==="
 echo ""
@@ -10,7 +11,7 @@ ip link show suricata-tap > /dev/null 2>&1 && echo "✓" || echo "✗"
 
 # Suricata port file
 echo -n "Port Config:   "
-[ -f /tmp/suricata_port.txt ] && echo "✓ ($(cat /tmp/suricata_port.txt))" || echo "✗"
+[ -f ${SDN_RUNTIME_DIR}/suricata_port.txt ] && echo "✓ ($(cat ${SDN_RUNTIME_DIR}/suricata_port.txt))" || echo "✗"
 
 # Suricata process
 echo -n "Suricata:      "

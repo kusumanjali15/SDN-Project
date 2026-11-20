@@ -1,0 +1,17 @@
+# Same line endings on every OS (Windows CRLF breaks shell scripts on Linux)
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.yaml text eol=lf
+*.template text eol=lf
+*.rules text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+
+# Binary files: never convert
+*.pkl binary
+*.pt binary
+*.keras binary
+*.pcap binary
+*.png binary
+*.pdf binary

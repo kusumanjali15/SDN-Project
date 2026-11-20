@@ -1,5 +1,6 @@
 #!/bin/bash
 # Quick System Status Check
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
 echo "=== SDN-IDS Quick Status ==="
 echo ""
@@ -34,16 +35,16 @@ else
 fi
 
 # Blocked IPs
-if [ -f /tmp/blocked_ips.txt ]; then
-    BLOCKED_COUNT=$(wc -l < /tmp/blocked_ips.txt)
+if [ -f ${SDN_RUNTIME_DIR}/blocked_ips.txt ]; then
+    BLOCKED_COUNT=$(wc -l < ${SDN_RUNTIME_DIR}/blocked_ips.txt)
     echo "✓ Blocked IPs: $BLOCKED_COUNT"
 else
     echo "○ Blocked IPs: 0 (file not created yet)"
 fi
 
 # Alerts
-if [ -f /tmp/suricata-alerts.json ]; then
-    ALERT_COUNT=$(grep -c "event_type" /tmp/suricata-alerts.json 2>/dev/null || echo "0")
+if [ -f ${SDN_RUNTIME_DIR}/suricata-alerts.json ]; then
+    ALERT_COUNT=$(grep -c "event_type" ${SDN_RUNTIME_DIR}/suricata-alerts.json 2>/dev/null || echo "0")
     echo "✓ Alerts: $ALERT_COUNT"
 else
     echo "○ Alerts: 0 (file not created yet)"

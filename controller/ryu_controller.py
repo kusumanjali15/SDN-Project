@@ -13,6 +13,8 @@ from datetime import datetime
 
 # Add ML module path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import settings
+settings.ensure_dirs()
 try:
     from ml.inference.predictor import MLPredictor
     ML_AVAILABLE = True
@@ -29,14 +31,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.mac_to_port = defaultdict(dict)
         self.suricata_port = {}
         self.blocked_ips = set()
-        self.blocked_ips_file = '/tmp/blocked_ips.txt'
-        self.alert_file = '/tmp/eve.json'
-        self.ml_alert_file = '/tmp/ml_alerts.json'  # ML predictions output for monitor.sh
-        self.command_file = '/tmp/controller_commands.txt'  # Command file for unblock/management
+        self.blocked_ips_file = str(settings.BLOCKED_IPS_FILE)
+        self.alert_file = str(settings.EVE_JSON)
+        self.ml_alert_file = str(settings.ML_ALERTS_FILE)  # ML predictions output for monitor.sh
+        self.command_file = str(settings.COMMAND_FILE)  # Command file for unblock/management
         self.datapaths = {}
         self.alert_history = {}  # Track processed alerts: key=(sid, src_ip) -> last_seen_time
         self.alert_dedup_window = 60  # Seconds to suppress duplicate alerts for same SID+IP
-        self.last_alert_position_file = '/tmp/alert_position.txt'
+        self.last_alert_position_file = str(settings.ALERT_POSITION_FILE)
         self.dropped_packet_log = {}  # Track last log time per blocked IP to reduce spam
         self.dropped_log_interval = 5  # Only log dropped packets every N seconds per IP
         self.stats = {
@@ -86,8 +88,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         
         while retry_count < max_retries:
             try:
-                if os.path.exists('/tmp/suricata_port.txt'):
-                    with open('/tmp/suricata_port.txt', 'r') as f:
+                if os.path.exists(settings.SURICATA_PORT_FILE):
+                    with open(settings.SURICATA_PORT_FILE, 'r') as f:
                         content = f.read().strip()
                         dpid, port = content.split(',')
                         self.suricata_port[int(dpid)] = int(port)
@@ -123,8 +125,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             return
         
         try:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            model_dir = os.path.join(base_dir, "ml", "models", "trained")
+            model_dir = str(settings.MODEL_DIR)
 
             self.ml_predictor = MLPredictor(
                 model_dir=model_dir,

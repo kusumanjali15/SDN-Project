@@ -1,0 +1,4 @@
+# CICFlowMeter needs Python >= 3.12, so it runs in its OWN virtual
+# environment, separate from the Ryu venv (Python 3.10). Install:
+#   python3.12 -m venv ~/venvs/cicflow && ~/venvs/cicflow/bin/pip install -r requirements-cicflow.lock
+cicflowmeter==0.5.0

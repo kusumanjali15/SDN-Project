@@ -1,5 +1,6 @@
 #!/bin/bash
 # DDoS Attack Testing Scripts for SDN-IDS Integration
+source "$(dirname "${BASH_SOURCE[0]}")/scripts/env.sh"
 
 echo "=== SDN-IDS DDoS Attack Testing ==="
 echo ""
@@ -12,7 +13,7 @@ echo "- Topology running"
 echo "- Suricata running"
 echo ""
 
-cat << 'EOF'
+cat << EOF
 
 ## 1. ICMP Flood Attack (Easiest to Test)
 ## Sends 25 rapid pings in ~2.5 seconds
@@ -76,22 +77,22 @@ Note: Requires nmap installed
 ## MONITORING COMMANDS (Run in separate terminal):
 
 # Watch controller for blocking events:
-tail -f /tmp/controller_output.log | grep -E "(ALERT|BLOCKED|HIGH PRIORITY)"
+tail -f ${SDN_RUNTIME_DIR}/controller_output.log | grep -E "(ALERT|BLOCKED|HIGH PRIORITY)"
 
 # Watch Suricata alerts in real-time:
-tail -f /tmp/suricata-alerts.json | jq -r 'select(.event_type=="alert") | {time: .timestamp, alert: .alert.signature, src: .src_ip, dst: .dest_ip}'
+tail -f ${SDN_RUNTIME_DIR}/suricata-alerts.json | jq -r 'select(.event_type=="alert") | {time: .timestamp, alert: .alert.signature, src: .src_ip, dst: .dest_ip}'
 
 # Check blocked IPs:
-cat /tmp/blocked_ips.txt
+cat ${SDN_RUNTIME_DIR}/blocked_ips.txt
 
 # Check specific alerts:
-grep -E 'SID=(1000002|1000050|1000051|1000052)' /tmp/suricata-alerts.json | tail -5
+grep -E 'SID=(1000002|1000050|1000051|1000052)' ${SDN_RUNTIME_DIR}/suricata-alerts.json | tail -5
 
 
 ## CLEANUP (After testing):
 
 # Clear blocked IPs and restart:
-sudo rm /tmp/blocked_ips.txt
+sudo rm ${SDN_RUNTIME_DIR}/blocked_ips.txt
 sudo ./scripts/cleanup.sh
 ./scripts/start_controller.sh (Terminal 1)
 sudo ./scripts/start_topology.sh (Terminal 2)

@@ -28,15 +28,16 @@ af-packet:
 # Packet capture settings
 default-packet-size: 1518
 
-# CRITICAL: Log directory must be /tmp/ for cross-namespace access
-default-log-dir: /tmp/
+# Template: scripts/start_suricata.sh fills in @...@ values per machine.
+# Log directory is the shared runtime dir (default /tmp) so the controller can read eve.json
+default-log-dir: @SDN_RUNTIME_DIR@/
 
-# Output modules - Write to /tmp/eve.json for controller access
+# Output modules - Write eve.json into the runtime dir for controller access
 outputs:
   - eve-log:
       enabled: yes
       filetype: regular
-      filename: eve.json  # Relative to default-log-dir (/tmp/)
+      filename: eve.json  # Relative to default-log-dir
       community-id: true
       community-id-seed: 0
       types:
@@ -129,8 +130,8 @@ threading:
           high: [ 3 ]
           default: "medium"
 
-# Rule files - Using absolute path for reliability
-default-rule-path: /home/reddykalilinux/SDN-PROJECT/SDN-Project/config
+# Rule files - absolute path filled in from the repo location
+default-rule-path: @SDN_CONFIG_DIR@
 rule-files:
   - custom.rules
 
