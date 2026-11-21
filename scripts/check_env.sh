@@ -38,8 +38,10 @@ echo "== Repository"
 echo "  root: $SDN_ROOT"
 echo "  branch: $(git branch --show-current 2>/dev/null) @ $(git log -1 --format=%h 2>/dev/null)"
 if [ -f .env ]; then pass ".env present"; else warn ".env missing (cp .env.example .env) - defaults will be used"; fi
-HARDCODED=$(grep -rnE "/home/[a-z]" --include=*.py --include=*.sh --include=*.template --include=*.yaml . 2>/dev/null \
-            | grep -v "^./.git/" | grep -v "scripts/env.sh" | grep -v "scripts/check_env.sh" | grep -v "\.github/")
+# Only files tracked by git (ignores local venvs, caches and other untracked folders)
+HARDCODED=$(git ls-files -z -- '*.py' '*.sh' '*.template' '*.yaml' \
+            | grep -zv -e "^scripts/env.sh$" -e "^scripts/check_env.sh$" -e "^\.github/" \
+            | xargs -0 -r grep -nE "/home/[a-z]" 2>/dev/null)
 if [ -z "$HARDCODED" ]; then pass "no hard-coded /home/<user> paths in code"
 else fail "hard-coded /home paths found:"; echo "$HARDCODED" | sed 's/^/        /'; fi
 
