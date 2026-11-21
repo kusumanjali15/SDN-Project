@@ -62,8 +62,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         
         self._init_ml()
         
-        # Load configurations
-        self._load_suricata_port()
+        # Load configurations (Suricata port is retried later if the
+        # topology has not written it yet)
+        if not self._load_suricata_port():
+            self.logger.info("Suricata port not available yet - will load it when the topology starts")
         self._load_blocked_ips()
         
         # Start alert monitoring thread
@@ -82,27 +84,26 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("=" * 60)
 
     def _load_suricata_port(self):
-        """Load Suricata port information from file"""
-        max_retries = 10
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            try:
-                if os.path.exists(settings.SURICATA_PORT_FILE):
-                    with open(settings.SURICATA_PORT_FILE, 'r') as f:
-                        content = f.read().strip()
-                        dpid, port = content.split(',')
-                        self.suricata_port[int(dpid)] = int(port)
-                        self.logger.info("✓ Loaded Suricata port: DPID=%s, Port=%s", dpid, port)
-                        return
-            except Exception as e:
-                self.logger.debug("Waiting for Suricata port info (attempt %d/%d): %s", 
-                                retry_count + 1, max_retries, e)
-            
-            retry_count += 1
-            time.sleep(2)
-        
-        self.logger.warning("Could not load Suricata port configuration after %d attempts", max_retries)
+        """Try once to load the Suricata mirror port from the topology's file.
+
+        Non-blocking: the topology usually starts after the controller, so the
+        file may not exist yet. Called again on switch connect and on packet-in
+        until it succeeds, so start order and timing no longer matter.
+        """
+        if self.suricata_port:
+            return True
+        try:
+            if os.path.exists(settings.SURICATA_PORT_FILE):
+                with open(settings.SURICATA_PORT_FILE, 'r') as f:
+                    content = f.read().strip()
+                dpid, port = content.split(',')
+                self.suricata_port[int(dpid)] = int(port)
+                self.logger.info("✓ Loaded Suricata port: DPID=%s, Port=%s (from %s)",
+                                 dpid, port, settings.SURICATA_PORT_FILE)
+                return True
+        except Exception as e:
+            self.logger.debug("Suricata port file not ready yet: %s", e)
+        return False
 
     def _load_blocked_ips(self):
         """Load blocked IPs from file"""
@@ -782,7 +783,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         # Install IP blocking rules (high priority)
         self._install_block_rules(datapath)
         
-        # Log Suricata configuration for this switch
+        # Log Suricata configuration for this switch (load it now if needed)
+        self._load_suricata_port()
         if datapath.id in self.suricata_port:
             self.logger.info("  ✓ Suricata mirror port: %s", self.suricata_port[datapath.id])
         
@@ -897,6 +899,10 @@ class SimpleSwitch13(app_manager.RyuApp):
                 # ML recommended blocking this traffic
                 return
         
+        # Load the Suricata port if the topology wrote it after we started
+        if not self.suricata_port:
+            self._load_suricata_port()
+
         # Don't process packets from Suricata to avoid loops
         if dpid in self.suricata_port and in_port == self.suricata_port[dpid]:
             return
