@@ -76,7 +76,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.ml_persistence = PersistenceTracker(settings.PERSISTENCE_R, settings.PERSISTENCE_WINDOW)
         self.sid_allowlist = load_sid_allowlist(settings.AUTO_BLOCK_SIDS_FILE)
         self.pending_barriers = {}            # xid -> (ip, dpid, sent_ts)
-        self.events = EventLogger(settings.EVENTS_FILE, settings.CURRENT_RUN_FILE,
+        self.event_log = EventLogger(settings.EVENTS_FILE, settings.CURRENT_RUN_FILE,
                                   default_policy=self.policy_mode)
 
         self._init_ml()
@@ -306,7 +306,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             if ml_positive:
                 persistent = self.ml_persistence.record(src_ip)
                 hits = self.ml_persistence.count(src_ip)
-                self.events.log('ml_positive', src_ip=src_ip, dst_ip=dst_ip,
+                self.event_log.log('ml_positive', src_ip=src_ip, dst_ip=dst_ip,
                                 ip_proto=ip_pkt.proto, attack_type=result.attack_type,
                                 confidence=round(float(result.attack_confidence), 4),
                                 anomaly_score=round(float(result.anomaly_score), 4),
@@ -559,7 +559,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.alert_history.clear()
                 self.ml_persistence = PersistenceTracker(settings.PERSISTENCE_R,
                                                          settings.PERSISTENCE_WINDOW)
-                self.events.log('reset')
+                self.event_log.log('reset')
                 self.logger.info("✅ Command executed successfully: RESET")
 
             elif cmd == 'BLOCK':
@@ -615,7 +615,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             
             approved = (sid in self.sid_allowlist) if self.sid_allowlist is not None \
                 else severity in (1, 2)
-            self.events.log('alert', src_ip=src_ip, dst_ip=dst_ip, sid=sid,
+            self.event_log.log('alert', src_ip=src_ip, dst_ip=dst_ip, sid=sid,
                             severity=severity, signature=signature,
                             proto=alert_data.get('proto'), approved=approved,
                             suricata_ts=timestamp)
@@ -648,12 +648,12 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     def _policy(self):
         """Policy for the run in progress (experiment harness can override per run)."""
-        run_policy = str(self.events.current_run().get('policy', '')).lower()
+        run_policy = str(self.event_log.current_run().get('policy', '')).lower()
         return run_policy if run_policy in self.VALID_POLICIES else self.policy_mode
 
     def _enforce(self):
         """False during capture runs: decisions are logged but no rules are installed."""
-        return bool(self.events.current_run().get('enforce', True))
+        return bool(self.event_log.current_run().get('enforce', True))
 
     def _new_block_record(self, ip_address, reason, source, scope=None,
                           dst_ip=None, ip_proto=None):
@@ -692,7 +692,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 return self.blocks[ip_address]
             scope = 'blanket' if source == 'manual' else self.block_scope
             if source in ('signature', 'ml') and not self._enforce():
-                self.events.log('decision', src_ip=ip_address, dst_ip=dst_ip,
+                self.event_log.log('decision', src_ip=ip_address, dst_ip=dst_ip,
                                 ip_proto=ip_proto, scope=scope, source=source, sid=sid,
                                 reason=reason, enforced=False)
                 self.logger.info("📝 Capture mode: would block %s (%s) - not enforced",
@@ -709,7 +709,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             del self.flow_ml_state[k]
 
         timeout = record.remaining()
-        self.events.log('decision', src_ip=ip_address, dst_ip=record.dst_ip,
+        self.event_log.log('decision', src_ip=ip_address, dst_ip=record.dst_ip,
                         ip_proto=record.ip_proto, scope=record.scope, source=source,
                         sid=sid, reason=reason, cookie=hex(record.cookie),
                         offence=record.offence, timeout=timeout or 0)
@@ -770,7 +770,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         record.sent_dpids.add(datapath.id)
         record.acked_dpids.discard(datapath.id)
-        self.events.log('flowmod_sent', src_ip=record.ip, dpid=datapath.id,
+        self.event_log.log('flowmod_sent', src_ip=record.ip, dpid=datapath.id,
                         cookie=hex(record.cookie), hard_timeout=hard_timeout)
 
         # Barrier: the switch replies only after processing the FlowMods above,
@@ -791,14 +791,14 @@ class SimpleSwitch13(app_manager.RyuApp):
             return
         ip_address, dpid, sent_ts = entry
         now = time.time()
-        self.events.log('barrier_ack', src_ip=ip_address, dpid=dpid,
+        self.event_log.log('barrier_ack', src_ip=ip_address, dpid=dpid,
                         rtt_ms=round((now - sent_ts) * 1000, 2))
         record = self.blocks.get(ip_address)
         if not record:
             return
         record.acked_dpids.add(dpid)
         if record.sent_dpids and record.acked_dpids >= record.sent_dpids:
-            self.events.log('block_verified', src_ip=ip_address,
+            self.event_log.log('block_verified', src_ip=ip_address,
                             switches=len(record.acked_dpids),
                             decision_to_verified_ms=round((now - record.created) * 1000, 2))
             self.logger.info("  ✓ Block for %s confirmed by all %d switches (%.1f ms after decision)",
@@ -813,7 +813,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         reasons = {ofproto.OFPRR_IDLE_TIMEOUT: 'idle_timeout',
                    ofproto.OFPRR_HARD_TIMEOUT: 'hard_timeout',
                    ofproto.OFPRR_DELETE: 'delete'}
-        self.events.log('flow_removed', src_ip=ip_from_cookie(msg.cookie),
+        self.event_log.log('flow_removed', src_ip=ip_from_cookie(msg.cookie),
                         dpid=msg.datapath.id, reason=reasons.get(msg.reason, msg.reason),
                         packets=msg.packet_count, bytes=msg.byte_count,
                         duration_s=msg.duration_sec)
@@ -870,7 +870,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             del self.alert_history[key]
 
         held = round(time.time() - record.created, 2) if record else None
-        self.events.log(stage, src_ip=ip_address, reason=reason, held_s=held,
+        self.event_log.log(stage, src_ip=ip_address, reason=reason, held_s=held,
                         switches=unblocked_count)
         self.logger.warning("=" * 60)
         self.logger.warning("🔓 IP %s: %s", "EXPIRED" if stage == 'expiry' else "UNBLOCKED", ip_address)
