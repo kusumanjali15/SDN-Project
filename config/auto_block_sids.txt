@@ -1,0 +1,26 @@
+# Suricata signatures approved to trigger AUTOMATIC blocking (one SID per line).
+# Alerts from other SIDs are logged but never block on their own.
+# Policy-violation signatures (2000003 cross-VLAN, 2000040 exfiltration,
+# 2000041 camera redirect) and monitoring rules (9000002) are deliberately
+# excluded: they are informational and blocking on them risks isolating
+# legitimate devices.
+
+# Floods (attempted-dos)
+1000001   # ICMP Flood Detected - High frequency pings
+1000002   # ICMP Flood to internal network
+1000010   # TCP SYN Flood Attack
+1000020   # UDP Flood Attack
+2000001   # IoT Device ICMP Flood - VLAN1
+2000002   # IoT Device ICMP Flood - VLAN2
+2000010   # ICMP Flood from Node-RED veth
+2000020   # MQTT Connection Flood
+2000050   # IoT Device Outbound DDoS Activity
+
+# Reconnaissance (attempted-recon)
+2000012   # Port Scan from Node-RED Network
+2000051   # IoT Device External Network Scan
+
+# Application attacks
+2000011   # HTTP Flood from Node-RED
+2000021   # HTTP Attack on IoT Sensors
+2000022   # IoT Web Interface Brute Force

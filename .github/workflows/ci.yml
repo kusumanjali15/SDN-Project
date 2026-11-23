@@ -36,5 +36,5 @@ jobs:
       - name: Environment check (paths, versions, config, models)
         run: ./scripts/check_env.sh --ml
 
-      - name: ML tests
-        run: python -m pytest -q ml/tests
+      - name: ML and controller tests
+        run: python -m pytest -q ml/tests controller/tests
