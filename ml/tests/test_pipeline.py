@@ -5,6 +5,7 @@ Test script to verify ML data pipeline works correctly.
 
 import sys
 import os
+import tempfile
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,7 +21,7 @@ def test_collector():
     
     from data.collector import FlowCollector, FlowStats
     
-    collector = FlowCollector(output_dir='/tmp/ml_test')
+    collector = FlowCollector(output_dir=os.path.join(tempfile.gettempdir(), 'ml_test'))
     
     # Simulate some packets
     test_packets = [
@@ -119,9 +120,10 @@ def test_anomaly_detector():
     print(f"✓ Anomalies detected: {anomaly_detection*100:.1f}%")
     
     # Test save/load
-    detector.save('/tmp/test_anomaly_detector.pkl')
+    _tmp_model = os.path.join(tempfile.gettempdir(), 'test_anomaly_detector.pkl')
+    detector.save(_tmp_model)
     detector2 = AnomalyDetector()
-    detector2.load('/tmp/test_anomaly_detector.pkl')
+    detector2.load(_tmp_model)
     print("✓ Save/Load working")
     
     print("Anomaly Detector: PASSED\n")

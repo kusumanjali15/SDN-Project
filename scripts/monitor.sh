@@ -1,18 +1,19 @@
 #!/bin/bash
 # Monitor Suricata Alerts AND ML Predictions
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║       SDN-IDS Combined Alert Monitor                       ║"
 echo "╠════════════════════════════════════════════════════════════╣"
-echo "║  🔍 Suricata: /tmp/eve.json                                ║"
-echo "║  🤖 ML Alerts: /tmp/ml_alerts.json                         ║"
+echo "║  🔍 Suricata: ${SDN_RUNTIME_DIR}/eve.json                                ║"
+echo "║  🤖 ML Alerts: ${SDN_RUNTIME_DIR}/ml_alerts.json                         ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 echo "Press Ctrl+C to stop"
 echo ""
 
-SURICATA_FILE="/tmp/eve.json"
-ML_FILE="/tmp/ml_alerts.json"
+SURICATA_FILE="${SDN_RUNTIME_DIR}/eve.json"
+ML_FILE="${SDN_RUNTIME_DIR}/ml_alerts.json"
 
 # Create files if they don't exist
 touch "$SURICATA_FILE" "$ML_FILE" 2>/dev/null

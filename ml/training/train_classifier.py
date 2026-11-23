@@ -17,6 +17,10 @@ import pandas as pd
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from config import settings
 
 from data.preprocessor import FlowPreprocessor
 from models.attack_classifier import AttackClassifier, GradientBoostingAttackClassifier
@@ -55,7 +59,7 @@ def main():
     parser.add_argument("--data", type=str, required=True,
                        help="Path to training data CSV")
     parser.add_argument("--output", type=str, 
-                       default="/home/kali/sdn-project/ml/models/trained",
+                       default=str(settings.MODEL_DIR),
                        help="Output directory")
     parser.add_argument("--model", type=str, choices=['rf', 'gb'],
                        default='rf', help="Model type: rf=RandomForest, gb=GradientBoosting")

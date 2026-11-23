@@ -1,0 +1,15 @@
+# Python packages for ML training, inference and analysis (Persons B and C).
+# Exact versions from the reference Kali testbed (docs/ENVIRONMENT.md).
+# Requires Python 3.10. Install:  pip install -r requirements-ml.lock
+# scikit-learn MUST stay 1.7.2: the trained .pkl models were saved with it.
+joblib==1.5.2
+numpy==2.2.6
+pandas==2.3.3
+scikit-learn==1.7.2
+scipy==1.15.3
+tensorflow==2.20.0
+matplotlib==3.10.7
+pytest==8.4.2
+# torch is only needed for the old LSTM, which is being removed from the
+# decision path. If you need it:
+#   pip install torch==2.10.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu

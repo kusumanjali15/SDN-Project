@@ -15,6 +15,10 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from config import settings
 
 from models.lstm_classifier import SimpleLSTMClassifier
 
@@ -178,8 +182,8 @@ def main():
     print(f"Started: {datetime.now()}")
     
     # Paths
-    data_dir = "/home/kali/sdn-project/ml/data/datasets"
-    output_dir = "/home/kali/sdn-project/ml/models/trained"
+    data_dir = str(settings.DATASET_DIR)
+    output_dir = str(settings.MODEL_DIR)
     
     # Load data
     flow_file = os.path.join(data_dir, "sdn_flows.csv")

@@ -15,6 +15,12 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 from mininet.link import TCLink
 import subprocess
+import os
+import sys
+
+# Make the repo root importable when run as `sudo python3 topology/topology.py`
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import settings
 
 
 # Central veth map (Node-RED ↔ Mininet)
@@ -118,7 +124,8 @@ def export_suricata_port(net):
             intf.link.intf2.node == suricata
         ):
             port = s1.ports[intf]
-            with open('/tmp/suricata_port.txt', 'w') as f:
+            settings.ensure_dirs()
+            with open(settings.SURICATA_PORT_FILE, 'w') as f:
                 f.write(f"{s1.dpid},{port}")
             info(f"*** Suricata port saved: {s1.dpid},{port}\n")
             return

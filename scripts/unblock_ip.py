@@ -12,12 +12,15 @@ Example:
 import sys
 import os
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import settings
+
 def unblock_ip_via_file(ip_address):
     """
     Unblock an IP by creating a command file that the controller monitors.
     This is a simple file-based IPC mechanism.
     """
-    command_file = '/tmp/controller_commands.txt'
+    command_file = str(settings.COMMAND_FILE)
     
     try:
         with open(command_file, 'a') as f:
@@ -34,7 +37,7 @@ def unblock_ip_via_file(ip_address):
 
 def show_blocked_ips():
     """Show currently blocked IPs"""
-    blocked_file = '/tmp/blocked_ips.txt'
+    blocked_file = str(settings.BLOCKED_IPS_FILE)
     
     if not os.path.exists(blocked_file):
         print("ℹ️  No blocked IPs file found")

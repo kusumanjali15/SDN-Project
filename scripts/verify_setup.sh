@@ -1,5 +1,6 @@
 #!/bin/bash
 # Comprehensive SDN-IDS System Verification
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║           SDN-IDS System Verification Tool                ║"
@@ -131,11 +132,11 @@ echo "5. CHECKING SURICATA CONFIGURATION"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check port mapping file
-if [ -f /tmp/suricata_port.txt ]; then
-    MAPPING=$(cat /tmp/suricata_port.txt)
+if [ -f ${SDN_RUNTIME_DIR}/suricata_port.txt ]; then
+    MAPPING=$(cat ${SDN_RUNTIME_DIR}/suricata_port.txt)
     check_pass "Suricata port mapping exists: $MAPPING"
 else
-    check_fail "Suricata port mapping file not found (/tmp/suricata_port.txt)"
+    check_fail "Suricata port mapping file not found (${SDN_RUNTIME_DIR}/suricata_port.txt)"
 fi
 
 # Check rules file
@@ -163,11 +164,11 @@ else
 fi
 
 # Check symlink
-if [ -L /tmp/suricata-alerts.json ]; then
-    TARGET=$(readlink /tmp/suricata-alerts.json)
-    check_pass "Alert symlink exists: /tmp/suricata-alerts.json → $TARGET"
+if [ -L ${SDN_RUNTIME_DIR}/suricata-alerts.json ]; then
+    TARGET=$(readlink ${SDN_RUNTIME_DIR}/suricata-alerts.json)
+    check_pass "Alert symlink exists: ${SDN_RUNTIME_DIR}/suricata-alerts.json → $TARGET"
 else
-    check_warn "Alert symlink not found at /tmp/suricata-alerts.json"
+    check_warn "Alert symlink not found at ${SDN_RUNTIME_DIR}/suricata-alerts.json"
 fi
 
 echo ""
@@ -175,12 +176,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "7. CHECKING BLOCKING FUNCTIONALITY"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if [ -f /tmp/blocked_ips.txt ]; then
-    BLOCKED_COUNT=$(grep -v '^#' /tmp/blocked_ips.txt | grep -v '^$' | wc -l)
+if [ -f ${SDN_RUNTIME_DIR}/blocked_ips.txt ]; then
+    BLOCKED_COUNT=$(grep -v '^#' ${SDN_RUNTIME_DIR}/blocked_ips.txt | grep -v '^$' | wc -l)
     if [ $BLOCKED_COUNT -gt 0 ]; then
         check_pass "Blocked IPs file exists with $BLOCKED_COUNT IPs"
         echo "   Blocked IPs:"
-        grep -v '^#' /tmp/blocked_ips.txt | grep -v '^$' | while read ip; do
+        grep -v '^#' ${SDN_RUNTIME_DIR}/blocked_ips.txt | grep -v '^$' | while read ip; do
             echo "     - $ip"
         done
     else
@@ -245,7 +246,7 @@ if [ $FAIL -eq 0 ] && [ $WARN -eq 0 ]; then
     echo "     ./scripts/monitor.sh"
     echo ""
     echo "  3. Check blocked IPs:"
-    echo "     cat /tmp/blocked_ips.txt"
+    echo "     cat ${SDN_RUNTIME_DIR}/blocked_ips.txt"
     echo ""
 elif [ $FAIL -eq 999 ]; then
     echo "╔════════════════════════════════════════════════════════════╗"

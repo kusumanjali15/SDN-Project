@@ -12,6 +12,10 @@ logging.basicConfig(level=logging.INFO)
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from config import settings
 
 import numpy as np
 import pandas as pd
@@ -38,7 +42,7 @@ def test_predictor():
         return False
     
     # Load test data
-    test_path = "/home/kali/sdn-project/ml/data/datasets/sdn_flows_test.csv"
+    test_path = str(settings.DATASET_DIR / "sdn_flows_test.csv")
     if not os.path.exists(test_path):
         print(f"\n❌ Test data not found at {test_path}")
         return False

@@ -18,6 +18,10 @@ from datetime import datetime
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from config import settings
 
 from data.preprocessor import FlowPreprocessor, load_cicids_dataset, prepare_train_test_split
 from models.anomaly_detector import AnomalyDetector, AutoencoderDetector
@@ -170,7 +174,7 @@ def main():
     
     # Output arguments
     parser.add_argument("--output", type=str, 
-                       default="/home/kali/sdn-project/ml/models/trained",
+                       default=str(settings.MODEL_DIR),
                        help="Output directory for trained models")
     
     args = parser.parse_args()

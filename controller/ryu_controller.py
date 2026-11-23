@@ -13,6 +13,8 @@ from datetime import datetime
 
 # Add ML module path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import settings
+settings.ensure_dirs()
 try:
     from ml.inference.predictor import MLPredictor
     ML_AVAILABLE = True
@@ -29,14 +31,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.mac_to_port = defaultdict(dict)
         self.suricata_port = {}
         self.blocked_ips = set()
-        self.blocked_ips_file = '/tmp/blocked_ips.txt'
-        self.alert_file = '/tmp/eve.json'
-        self.ml_alert_file = '/tmp/ml_alerts.json'  # ML predictions output for monitor.sh
-        self.command_file = '/tmp/controller_commands.txt'  # Command file for unblock/management
+        self.blocked_ips_file = str(settings.BLOCKED_IPS_FILE)
+        self.alert_file = str(settings.EVE_JSON)
+        self.ml_alert_file = str(settings.ML_ALERTS_FILE)  # ML predictions output for monitor.sh
+        self.command_file = str(settings.COMMAND_FILE)  # Command file for unblock/management
         self.datapaths = {}
         self.alert_history = {}  # Track processed alerts: key=(sid, src_ip) -> last_seen_time
         self.alert_dedup_window = 60  # Seconds to suppress duplicate alerts for same SID+IP
-        self.last_alert_position_file = '/tmp/alert_position.txt'
+        self.last_alert_position_file = str(settings.ALERT_POSITION_FILE)
         self.dropped_packet_log = {}  # Track last log time per blocked IP to reduce spam
         self.dropped_log_interval = 5  # Only log dropped packets every N seconds per IP
         self.stats = {
@@ -60,8 +62,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         
         self._init_ml()
         
-        # Load configurations
-        self._load_suricata_port()
+        # Load configurations (Suricata port is retried later if the
+        # topology has not written it yet)
+        if not self._load_suricata_port():
+            self.logger.info("Suricata port not available yet - will load it when the topology starts")
         self._load_blocked_ips()
         
         # Start alert monitoring thread
@@ -80,27 +84,26 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("=" * 60)
 
     def _load_suricata_port(self):
-        """Load Suricata port information from file"""
-        max_retries = 10
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            try:
-                if os.path.exists('/tmp/suricata_port.txt'):
-                    with open('/tmp/suricata_port.txt', 'r') as f:
-                        content = f.read().strip()
-                        dpid, port = content.split(',')
-                        self.suricata_port[int(dpid)] = int(port)
-                        self.logger.info("✓ Loaded Suricata port: DPID=%s, Port=%s", dpid, port)
-                        return
-            except Exception as e:
-                self.logger.debug("Waiting for Suricata port info (attempt %d/%d): %s", 
-                                retry_count + 1, max_retries, e)
-            
-            retry_count += 1
-            time.sleep(2)
-        
-        self.logger.warning("Could not load Suricata port configuration after %d attempts", max_retries)
+        """Try once to load the Suricata mirror port from the topology's file.
+
+        Non-blocking: the topology usually starts after the controller, so the
+        file may not exist yet. Called again on switch connect and on packet-in
+        until it succeeds, so start order and timing no longer matter.
+        """
+        if self.suricata_port:
+            return True
+        try:
+            if os.path.exists(settings.SURICATA_PORT_FILE):
+                with open(settings.SURICATA_PORT_FILE, 'r') as f:
+                    content = f.read().strip()
+                dpid, port = content.split(',')
+                self.suricata_port[int(dpid)] = int(port)
+                self.logger.info("✓ Loaded Suricata port: DPID=%s, Port=%s (from %s)",
+                                 dpid, port, settings.SURICATA_PORT_FILE)
+                return True
+        except Exception as e:
+            self.logger.debug("Suricata port file not ready yet: %s", e)
+        return False
 
     def _load_blocked_ips(self):
         """Load blocked IPs from file"""
@@ -123,8 +126,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             return
         
         try:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            model_dir = os.path.join(base_dir, "ml", "models", "trained")
+            model_dir = str(settings.MODEL_DIR)
 
             self.ml_predictor = MLPredictor(
                 model_dir=model_dir,
@@ -781,7 +783,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         # Install IP blocking rules (high priority)
         self._install_block_rules(datapath)
         
-        # Log Suricata configuration for this switch
+        # Log Suricata configuration for this switch (load it now if needed)
+        self._load_suricata_port()
         if datapath.id in self.suricata_port:
             self.logger.info("  ✓ Suricata mirror port: %s", self.suricata_port[datapath.id])
         
@@ -896,6 +899,10 @@ class SimpleSwitch13(app_manager.RyuApp):
                 # ML recommended blocking this traffic
                 return
         
+        # Load the Suricata port if the topology wrote it after we started
+        if not self.suricata_port:
+            self._load_suricata_port()
+
         # Don't process packets from Suricata to avoid loops
         if dpid in self.suricata_port and in_port == self.suricata_port[dpid]:
             return

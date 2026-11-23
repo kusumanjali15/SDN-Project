@@ -8,11 +8,17 @@ and Suricata alerts for ML model training and inference.
 import json
 import time
 import os
+import sys
 import csv
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field, asdict
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from config import settings
 
 
 @dataclass
@@ -97,7 +103,7 @@ class FlowCollector:
     
     def __init__(self, 
                  flow_timeout: float = 60.0,
-                 output_dir: str = "/tmp/ml_data"):
+                 output_dir: str = str(settings.ML_DATA_DIR)):
         """
         Initialize the flow collector.
         
@@ -398,7 +404,7 @@ class SuricataAlertCollector:
     for supervised learning.
     """
     
-    def __init__(self, alert_file: str = "/tmp/eve.json"):
+    def __init__(self, alert_file: str = str(settings.EVE_JSON)):
         self.alert_file = alert_file
         self.alerts: List[Dict] = []
         self.last_position = 0
