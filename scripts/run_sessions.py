@@ -189,15 +189,21 @@ def chown_to_user(path):
 
 # ---------------------------------------------------------------- session
 def benign_loop_cmd(peers, rng):
-    """Shell loop of light, varied benign traffic towards peers."""
+    """IoT-like background traffic: one small request every 2-6 s.
+
+    Mostly HTTP polling (telemetry/status), sometimes a single ping. About one
+    ping per 10-20 s per device, well below the flood rules' thresholds (15
+    pings in 10 s), so benign devices are not mistaken for attackers.
+    """
     targets = " ".join(peers)
     return (
+        f"peers=({targets}); n=${{#peers[@]}}; "
         f"for i in $(seq 1 100000); do "
-        f"for t in {targets}; do "
-        f"ping -c $((RANDOM%3+1)) -i 0.5 -W 1 $t >/dev/null 2>&1; "
-        f"curl -s -m 2 -o /dev/null http://$t:{HTTP_PORT}/ ; "
-        f"sleep 0.$((RANDOM%9+1)); "
-        f"done; sleep $((RANDOM%3+1)); done"
+        f"t=${{peers[RANDOM % n]}}; "
+        f"if (( RANDOM % 3 == 0 )); then ping -c 1 -W 1 $t >/dev/null 2>&1; "
+        f"else curl -s -m 2 -o /dev/null http://$t:{HTTP_PORT}/status ; fi; "
+        f"sleep $((RANDOM % 5 + 2)).$((RANDOM % 10)); "
+        f"done"
     )
 
 
@@ -225,7 +231,8 @@ def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
                        "variant": variant, "enforce": mode == "experiment",
                        "attacker_ip": ALL_HOSTS.get(attacker), "victim_ip": ALL_HOSTS[victim]})
 
-    network_ok(hosts)
+    for v_hosts in VLANS.values():
+        network_ok(list(v_hosts))
 
     procs = HostProcs()
     mirror_pcap = out_dir / f"{run_id}_mirror.pcap"
@@ -240,8 +247,8 @@ def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
         # captures
         procs.start("suricata", f"exec tcpdump -i suricata-eth0 -U -s 0 -w {mirror_pcap}")
         procs.start(victim, f"exec tcpdump -i {victim}-eth0 -U -s 0 -w {victim_pcap}")
-        # HTTP servers on every host of the VLAN (benign targets)
-        for h in hosts:
+        # HTTP servers on every host (benign targets)
+        for h in ALL_HOSTS:
             procs.start(h, f"cd /tmp && exec python3 -m http.server {HTTP_PORT} --bind {ALL_HOSTS[h]}")
         time.sleep(1.5)
 
@@ -250,12 +257,13 @@ def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
         events.log("session_start", scenario=scenario, variant=variant,
                    attacker_ip=row["attacker_ip"] or None, victim_ip=row["victim_ip"])
 
-        # benign traffic from every host except the attacker
-        for h in hosts:
-            if h == attacker:
-                continue
-            peers = [ALL_HOSTS[p] for p in hosts if p != h]
-            procs.start(h, benign_loop_cmd(peers, rng))
+        # benign traffic from every host except the attacker, to peers in its own VLAN
+        for v_hosts in VLANS.values():
+            for h in v_hosts:
+                if h == attacker:
+                    continue
+                peers = [ip for p, ip in v_hosts.items() if p != h]
+                procs.start(h, benign_loop_cmd(peers, rng))
 
         attack_proc = None
         while True:

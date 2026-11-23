@@ -4,6 +4,8 @@
 # 2000041 camera redirect) and monitoring rules (9000002) are deliberately
 # excluded: they are informational and blocking on them risks isolating
 # legitimate devices.
+# 2000022 (IoT Web Interface Brute Force) is excluded too: it counts every
+# packet to a web port (20 per 60 s), so normal web polling triggers it.
 
 # Floods (attempted-dos)
 1000001   # ICMP Flood Detected - High frequency pings
@@ -23,4 +25,3 @@
 # Application attacks
 2000011   # HTTP Flood from Node-RED
 2000021   # HTTP Attack on IoT Sensors
-2000022   # IoT Web Interface Brute Force
