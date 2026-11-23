@@ -135,6 +135,31 @@ def tool_version(cmd):
         return "not found"
 
 
+class NetworkDown(RuntimeError):
+    pass
+
+
+def network_ok(hosts, timeout=30):
+    """Ping between all hosts of a VLAN; retry for up to `timeout` s.
+
+    Catches a stalled controller before a session records useless pcaps.
+    """
+    pairs = list(zip(hosts, hosts[1:] + hosts[:1]))
+    deadline = time.time() + timeout
+    while True:
+        bad = []
+        for a, b in pairs:
+            r = subprocess.run(["mnexec", "-a", host_pid(a), "ping", "-c", "1", "-W", "1",
+                                ALL_HOSTS[b]], capture_output=True)
+            if r.returncode != 0:
+                bad.append(f"{a}->{b}")
+        if not bad:
+            return True
+        if time.time() >= deadline:
+            raise NetworkDown(f"no connectivity for {timeout}s: {', '.join(bad)}")
+        time.sleep(2)
+
+
 def write_current_run(run):
     tmp = Path(str(settings.CURRENT_RUN_FILE) + ".tmp")
     tmp.write_text(json.dumps(run))
@@ -200,6 +225,8 @@ def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
                        "variant": variant, "enforce": mode == "experiment",
                        "attacker_ip": ALL_HOSTS.get(attacker), "victim_ip": ALL_HOSTS[victim]})
 
+    network_ok(hosts)
+
     procs = HostProcs()
     mirror_pcap = out_dir / f"{run_id}_mirror.pcap"
     victim_pcap = out_dir / f"{run_id}_victim.pcap"
@@ -256,6 +283,10 @@ def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
             if f.exists():
                 chown_to_user(f)
         writer.writerow(row)
+        size = mirror_pcap.stat().st_size if mirror_pcap.exists() else 0
+        if size < 20000:
+            print(f"  WARNING: mirror capture is only {size} bytes - traffic may not be "
+                  f"reaching Suricata (is the controller keeping up?)")
 
     if mode == "experiment":
         send_command("RESET:all")
@@ -341,6 +372,10 @@ def main():
         except KeyboardInterrupt:
             interrupted = True
             print("\nInterrupted - sessions finished so far are saved.")
+        except NetworkDown as e:
+            interrupted = True
+            print(f"\nSTOPPED: {e}.\nThe controller has probably stalled. Restart controller, "
+                  "topology and Suricata, then run again. Sessions finished so far are saved.")
         finally:
             write_current_run({"run_id": "adhoc", "policy": settings.POLICY_MODE,
                                "attack": "unknown", "enforce": True})

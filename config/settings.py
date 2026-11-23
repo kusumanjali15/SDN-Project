@@ -107,6 +107,12 @@ BLOCK_REPEAT_MULTIPLIER = _float("SDN_BLOCK_REPEAT_MULTIPLIER", 2.0)
 PERSISTENCE_R = _int("SDN_PERSISTENCE_R", 3)                 # ML positives needed ...
 PERSISTENCE_WINDOW = _float("SDN_PERSISTENCE_WINDOW", 10.0)  # ... within this many seconds
 ML_CONFIDENCE = _float("SDN_ML_CONFIDENCE", 0.60)            # RF confidence for a positive
+# Live ML on packet-ins (true/false). Off = signature path only; ML is then
+# evaluated offline on the captured pcaps. Keeps the controller fast under floods.
+ML_LIVE = os.environ.get("SDN_ML_LIVE", "true").strip().lower() not in ("0", "false", "no", "off")
+# Per-packet [LEARN]/[FLOW] lines. Off by default: under a flood they slow the
+# controller down enough to stop forwarding.
+VERBOSE_FLOWS = os.environ.get("SDN_VERBOSE_FLOWS", "false").strip().lower() in ("1", "true", "yes", "on")
 AUTO_BLOCK_SIDS_FILE = _path("SDN_AUTO_BLOCK_SIDS_FILE", CONFIG_DIR / "auto_block_sids.txt")
 
 # Network settings that differ between machines

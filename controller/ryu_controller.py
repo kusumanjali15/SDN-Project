@@ -6,6 +6,7 @@ from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp, tcp, udp
 from collections import defaultdict
 import os
 import sys
+import warnings
 import threading
 import json
 import time
@@ -21,6 +22,9 @@ from controller.enforcement import (
 )
 from controller.event_log import EventLogger
 settings.ensure_dirs()
+
+# sklearn warns on every prediction (feature names); printing it per packet slows the controller
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 try:
     from ml.inference.predictor import MLPredictor
     ML_AVAILABLE = True
@@ -112,6 +116,9 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.logger.info("  Approved SIDs: %s",
                          f"{len(self.sid_allowlist)} from {settings.AUTO_BLOCK_SIDS_FILE}"
                          if self.sid_allowlist is not None else "none (falling back to severity 1-2)")
+        self.logger.info("  Live ML: %s | per-packet flow logs: %s",
+                         "on" if settings.ML_LIVE else "OFF (evaluated offline)",
+                         "on" if settings.VERBOSE_FLOWS else "off")
         self.logger.info("  Event log: %s", settings.EVENTS_FILE)
         self.logger.info("=" * 60)
 
@@ -1017,7 +1024,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         datapath.send_msg(mod)
         
         # Log flow installation only for IPv4 packets (or blocking rules)
-        if log_flow:
+        if log_flow and settings.VERBOSE_FLOWS:
             action_str = "DROP" if not actions else ", ".join([str(a) for a in actions])
             self.logger.info("[FLOW] DPID=%s priority=%d actions=[%s]",
                             datapath.id, priority, action_str)
@@ -1072,8 +1079,8 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.logger.debug("[IPv4] DPID=%s %s → %s (MAC: %s → %s)",
                            dpid, src_ip, dst_ip, src, dst)
             
-            # ML-based threat detection
-            if self._process_ml_prediction(pkt, ip_pkt, dpid, in_port):
+            # ML-based threat detection (can be switched off: SDN_ML_LIVE=false)
+            if settings.ML_LIVE and self._process_ml_prediction(pkt, ip_pkt, dpid, in_port):
                 # ML recommended blocking this traffic
                 return
         
@@ -1111,7 +1118,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             # Only log LEARN for IPv4 packets (cleaner output)
             if ip_pkt:
                 mirror_info = " +mirror" if (dpid == 1 and dpid in self.suricata_port) else ""
-                self.logger.info("[LEARN] DPID=%s %s → %s port %s→%s%s",
+                self.logger.debug("[LEARN] DPID=%s %s → %s port %s→%s%s",
                                dpid, ip_pkt.src, ip_pkt.dst, in_port, out_port, mirror_info)
             
             # Short idle_timeout=3 for ML to see more packets during attacks
