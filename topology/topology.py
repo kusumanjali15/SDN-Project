@@ -32,57 +32,57 @@ VETH_MAP = {
 }
 
 
+def host_layout(hosts_per_switch=2):
+    """(name, ip, vlan, switch) for every host.
+
+    Default (2 per access switch) is the original 8-host topology:
+    h1/h2 on s2, h3/h4 on s3, h5/h6 on s4, h7/h8 on s5. Larger sizes keep the
+    same pattern: odd hosts are VLAN 1 (10.0.1.n), even hosts VLAN 2
+    (10.0.2.n), and pairs are spread round-robin over s2..s5.
+    Set SDN_HOSTS_PER_SWITCH in the environment or .env for the scalability
+    sweep (e.g. 8 -> 32 hosts, 16 -> 64 hosts).
+    """
+    total = 4 * hosts_per_switch
+    layout = []
+    for n in range(1, total + 1):
+        vlan = 1 if n % 2 else 2
+        switch = f"s{2 + ((n - 1) // 2) % 4}"
+        layout.append((f"h{n}", f"10.0.{vlan}.{n}", vlan, switch))
+    return layout
+
+
+def hosts_per_switch():
+    try:
+        return max(2, int(os.environ.get("SDN_HOSTS_PER_SWITCH", "2") or 2))
+    except ValueError:
+        return 2
+
+
 class CustomTopology(Topo):
     """
     SDN Topology:
     - Core switch s1
-    - Access switches s2–s5
-    - Hosts h1–h8
+    - Access switches s2-s5
+    - Hosts h1-hN (N = 8 by default, see host_layout)
     - Suricata IDS attached to s1
     """
 
-    def build(self):
+    def build(self, per_switch=2):
         # Switches
-        s1 = self.addSwitch('s1', protocols='OpenFlow13')
-        s2 = self.addSwitch('s2', protocols='OpenFlow13')
-        s3 = self.addSwitch('s3', protocols='OpenFlow13')
-        s4 = self.addSwitch('s4', protocols='OpenFlow13')
-        s5 = self.addSwitch('s5', protocols='OpenFlow13')
+        switches = {f"s{i}": self.addSwitch(f"s{i}", protocols='OpenFlow13') for i in range(1, 6)}
 
         # Suricata IDS host (must be first link on s1)
         suricata = self.addHost('suricata', ip='10.0.0.100/24')
+        self.addLink(switches["s1"], suricata)
 
-        # VLAN 1 hosts
-        h1 = self.addHost('h1', ip='10.0.1.1/24')
-        h3 = self.addHost('h3', ip='10.0.1.3/24')
-        h5 = self.addHost('h5', ip='10.0.1.5/24')
-        h7 = self.addHost('h7', ip='10.0.1.7/24')
+        # Core to access links
+        for i in range(2, 6):
+            self.addLink(switches["s1"], switches[f"s{i}"])
 
-        # VLAN 2 hosts
-        h2 = self.addHost('h2', ip='10.0.2.2/24')
-        h4 = self.addHost('h4', ip='10.0.2.4/24')
-        h6 = self.addHost('h6', ip='10.0.2.6/24')
-        h8 = self.addHost('h8', ip='10.0.2.8/24')
-
-        # Links
-        self.addLink(s1, suricata)
-
-        self.addLink(s1, s2)
-        self.addLink(s1, s3)
-        self.addLink(s1, s4)
-        self.addLink(s1, s5)
-
-        self.addLink(s2, h1)
-        self.addLink(s2, h2)
-
-        self.addLink(s3, h3)
-        self.addLink(s3, h4)
-
-        self.addLink(s4, h5)
-        self.addLink(s4, h6)
-
-        self.addLink(s5, h7)
-        self.addLink(s5, h8)
+        # Hosts: VLAN 1 = 10.0.1.x (odd), VLAN 2 = 10.0.2.x (even)
+        for name, ip, _vlan, sw in host_layout(per_switch):
+            h = self.addHost(name, ip=f"{ip}/24")
+            self.addLink(switches[sw], h)
 
 
 def add_veth_to_host(net, host_name, host_ip, mn_ip):
@@ -134,7 +134,9 @@ def export_suricata_port(net):
 
 
 def startNetwork():
-    topo = CustomTopology()
+    per_switch = hosts_per_switch()
+    info(f'*** {4 * per_switch} hosts ({per_switch} per access switch)\n')
+    topo = CustomTopology(per_switch=per_switch)
 
     net = Mininet(
         topo=topo,

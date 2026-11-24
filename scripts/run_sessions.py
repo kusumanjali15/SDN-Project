@@ -49,11 +49,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings                      # noqa: E402
 from controller.event_log import EventLogger     # noqa: E402
 
-VLANS = {
-    1: {"h1": "10.0.1.1", "h3": "10.0.1.3", "h5": "10.0.1.5", "h7": "10.0.1.7"},
-    2: {"h2": "10.0.2.2", "h4": "10.0.2.4", "h6": "10.0.2.6", "h8": "10.0.2.8"},
-}
-ALL_HOSTS = {h: ip for v in VLANS.values() for h, ip in v.items()}
+# Filled in by discover_hosts() from the running topology (8 hosts by default,
+# more for the scalability sweep). Odd hosts: VLAN 1 = 10.0.1.n; even: VLAN 2.
+VLANS = {1: {}, 2: {}}
+ALL_HOSTS = {}
+
+
+def discover_hosts():
+    """Find the Mininet hosts that are running (h1..hN)."""
+    out = subprocess.run(["pgrep", "-af", r"mininet:h[0-9]+$"], capture_output=True, text=True)
+    names = sorted({line.rsplit("mininet:", 1)[1] for line in out.stdout.splitlines()},
+                   key=lambda h: int(h[1:]))
+    VLANS[1].clear(); VLANS[2].clear(); ALL_HOSTS.clear()
+    for h in names:
+        n = int(h[1:])
+        vlan = 1 if n % 2 else 2
+        VLANS[vlan][h] = f"10.0.{vlan}.{n}"
+        ALL_HOSTS[h] = VLANS[vlan][h]
+    return names
 HTTP_PORT = 8080
 
 # Attack variants: (label, command template, description). {victim} and {port}
@@ -187,6 +200,50 @@ def chown_to_user(path):
         pass
 
 
+class CpuSampler:
+    """Samples the controller's (ryu-manager) CPU use once per second."""
+
+    def __init__(self):
+        out = subprocess.run(["pgrep", "-f", "ryu-manager"], capture_output=True, text=True)
+        self.pids = out.stdout.split()
+        self.samples = []
+        self._stop = False
+        import threading
+        self._t = threading.Thread(target=self._run, daemon=True)
+
+    def _ticks(self):
+        total = 0
+        for pid in self.pids:
+            try:
+                f = open(f"/proc/{pid}/stat").read().rsplit(")", 1)[1].split()
+                total += int(f[11]) + int(f[12])  # utime + stime
+            except (OSError, IndexError, ValueError):
+                pass
+        return total
+
+    def _run(self):
+        hz = os.sysconf("SC_CLK_TCK")
+        last, t_last = self._ticks(), time.time()
+        while not self._stop:
+            time.sleep(1)
+            now, t = self._ticks(), time.time()
+            self.samples.append(100.0 * (now - last) / hz / max(t - t_last, 1e-6))
+            last, t_last = now, t
+
+    def start(self):
+        if self.pids:
+            self._t.start()
+        return self
+
+    def stop(self):
+        self._stop = True
+        if self._t.is_alive():
+            self._t.join(timeout=2)
+        if not self.samples:
+            return "", ""
+        return f"{sum(self.samples) / len(self.samples):.1f}", f"{max(self.samples):.1f}"
+
+
 # ---------------------------------------------------------------- session
 def benign_loop_cmd(peers, rng):
     """IoT-like background traffic: one small request every 2-6 s.
@@ -208,7 +265,8 @@ def benign_loop_cmd(peers, rng):
 
 
 def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
-    run_id = f"{datetime.now():%Y%m%d_%H%M%S}_{scenario}_{args.policy}_run{idx:02d}"
+    tag = f"_{args.tag}" if args.tag else ""
+    run_id = f"{datetime.now():%Y%m%d_%H%M%S}_{scenario}_{args.policy}{tag}_run{idx:02d}"
     vlan = rng.choice(list(VLANS))
     hosts = list(VLANS[vlan])
     attacker, victim = rng.sample(hosts, 2) if scenario != "benign" else (None, rng.choice(hosts))
@@ -242,7 +300,10 @@ def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
            "attacker_ip": ALL_HOSTS.get(attacker, ""), "victim_host": victim,
            "victim_ip": ALL_HOSTS[victim], "attack_cmd": attack_cmd,
            "session_start": "", "attack_start": "", "attack_end": "", "session_end": "",
-           "mirror_pcap": mirror_pcap.name, "victim_pcap": victim_pcap.name}
+           "mirror_pcap": mirror_pcap.name, "victim_pcap": victim_pcap.name,
+           "n_hosts": len(ALL_HOSTS), "tag": args.tag or "",
+           "controller_cpu_avg": "", "controller_cpu_max": ""}
+    cpu = CpuSampler()
     try:
         # captures
         procs.start("suricata", f"exec tcpdump -i suricata-eth0 -U -s 0 -w {mirror_pcap}")
@@ -254,6 +315,7 @@ def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
 
         session_start = time.time()
         row["session_start"] = f"{session_start:.6f}"
+        cpu.start()
         events.log("session_start", scenario=scenario, variant=variant,
                    attacker_ip=row["attacker_ip"] or None, victim_ip=row["victim_ip"])
 
@@ -284,6 +346,7 @@ def run_session(args, mode, scenario, idx, rng, out_dir, events, writer):
                 break
             time.sleep(0.2)
     finally:
+        row["controller_cpu_avg"], row["controller_cpu_max"] = cpu.stop()
         procs.stop_all()
         row["session_end"] = f"{time.time():.6f}"
         events.log("session_end", scenario=scenario)
@@ -319,6 +382,7 @@ def main():
     ap.add_argument("--gap", type=float, default=5, help="pause between sessions (seconds)")
     ap.add_argument("--seed", type=int, default=None, help="random seed (default: time-based)")
     ap.add_argument("--out", default=None, help="output folder")
+    ap.add_argument("--tag", default="", help="label added to run IDs and the folder, e.g. hosts32")
     args = ap.parse_args()
 
     if os.geteuid() != 0:
@@ -335,13 +399,16 @@ def main():
     if missing:
         sys.exit(f"Missing tools: {missing}. Install with: sudo apt install -y "
                  + " ".join({'mnexec': 'mininet', 'ping': 'iputils-ping'}.get(t, t) for t in missing))
-    for h in ["suricata"] + list(ALL_HOSTS):
-        host_pid(h)  # fails early if the topology is not running
+    if not discover_hosts():
+        sys.exit("No Mininet hosts found - is the topology running?")
+    host_pid("suricata")  # fails early if Suricata's host is missing
+    print(f"Topology: {len(ALL_HOSTS)} hosts ({len(VLANS[1])} in VLAN 1, {len(VLANS[2])} in VLAN 2)")
 
     seed = args.seed if args.seed is not None else int(time.time())
     rng = random.Random(seed)
     out_dir = Path(args.out) if args.out else \
-        settings.ROOT / "data" / "captures" / f"{args.mode}_{datetime.now():%Y%m%d_%H%M%S}"
+        settings.ROOT / "data" / "captures" / (f"{args.mode}_{datetime.now():%Y%m%d_%H%M%S}"
+                                               + (f"_{args.tag}" if args.tag else ""))
     out_dir.mkdir(parents=True, exist_ok=True)
     settings.ensure_dirs()
     events = EventLogger(settings.EVENTS_FILE, settings.CURRENT_RUN_FILE, default_policy=args.policy)
@@ -354,6 +421,7 @@ def main():
         "sessions_per_scenario": args.sessions, "duration_s": args.duration,
         "attack_start_s": args.attack_start, "attack_length_s": args.attack_length,
         "seed": seed, "started": datetime.now().isoformat(), "attacks": ATTACKS,
+        "n_hosts": len(ALL_HOSTS), "tag": args.tag,
         "tools": {t: tool_version(c) for t, c in {
             "hping3": ["hping3", "--version"], "nmap": ["nmap", "--version"],
             "tcpdump": ["tcpdump", "--version"]}.items()},
@@ -367,7 +435,8 @@ def main():
     sched_path = out_dir / "schedule.csv"
     fields = ["run_id", "mode", "policy", "scenario", "variant", "vlan", "attacker_host",
               "attacker_ip", "victim_host", "victim_ip", "attack_cmd", "session_start",
-              "attack_start", "attack_end", "session_end", "mirror_pcap", "victim_pcap"]
+              "attack_start", "attack_end", "session_end", "mirror_pcap", "victim_pcap",
+              "n_hosts", "tag", "controller_cpu_avg", "controller_cpu_max"]
     interrupted = False
     with open(sched_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)

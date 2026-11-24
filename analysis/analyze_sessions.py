@@ -139,6 +139,9 @@ def analyze(run_dir, events_path):
         rec = {k: r[k] for k in ("run_id", "mode", "policy", "scenario", "variant",
                                  "attacker_ip", "victim_ip")}
         rec["attack_duration_s"] = (a_end - a_start) if a_start and a_end else None
+        for k in ("n_hosts", "controller_cpu_avg", "controller_cpu_max"):
+            if r.get(k):
+                rec[k] = float(r[k])
 
         # controller decisions and alerts
         dec_att = first(evs, stage="decision", src_ip=attacker) if attacker else None
