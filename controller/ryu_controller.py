@@ -6,6 +6,7 @@ from ryu.lib.packet import packet, ethernet, ether_types, ipv4, icmp, tcp, udp
 from collections import defaultdict
 import os
 import sys
+import warnings
 import threading
 import json
 import time
@@ -14,7 +15,16 @@ from datetime import datetime
 # Add ML module path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
+from controller.enforcement import (
+    PersistenceTracker, BlockRecord, block_timeout, load_sid_allowlist,
+    make_cookie, cookie_for_ip, is_policy_cookie, ip_from_cookie,
+    proto_number, COOKIE_MASK_TAG_AND_IP,
+)
+from controller.event_log import EventLogger
 settings.ensure_dirs()
+
+# sklearn warns on every prediction (feature names); printing it per packet slows the controller
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 try:
     from ml.inference.predictor import MLPredictor
     ML_AVAILABLE = True
@@ -54,12 +64,25 @@ class SimpleSwitch13(app_manager.RyuApp):
         # ML Integration
         self.ml_enabled = False
         self.ml_predictor = None
-        self.ml_block_threshold = 0.60  # Confidence threshold for auto-blocking (60% for realistic detection)
         self.ml_prediction_interval = 10  # Predict every N packets per flow to reduce overhead
         
         # 🧩 FIX 1: PER-FLOW ML STATE (moved to correct location)
         self.flow_ml_state = {}
-        
+
+        # Enforcement policy (Section IV): persistence, finite-lifetime scoped
+        # rules, approved signatures, policy cookies, barrier verification
+        self.state_lock = threading.RLock()
+        self.blocks = {}                      # src IP -> BlockRecord (active decisions)
+        self.offences = defaultdict(int)      # src IP -> number of blocks so far
+        self.policy_mode = settings.POLICY_MODE
+        self.block_scope = settings.BLOCK_SCOPE
+        self.ml_block_threshold = settings.ML_CONFIDENCE
+        self.ml_persistence = PersistenceTracker(settings.PERSISTENCE_R, settings.PERSISTENCE_WINDOW)
+        self.sid_allowlist = load_sid_allowlist(settings.AUTO_BLOCK_SIDS_FILE)
+        self.pending_barriers = {}            # xid -> (ip, dpid, sent_ts)
+        self.event_log = EventLogger(settings.EVENTS_FILE, settings.CURRENT_RUN_FILE,
+                                  default_policy=self.policy_mode)
+
         self._init_ml()
         
         # Load configurations (Suricata port is retried later if the
@@ -75,12 +98,28 @@ class SimpleSwitch13(app_manager.RyuApp):
         # Start command monitoring thread (for unblock commands)
         self.command_thread = threading.Thread(target=self._monitor_commands, daemon=True)
         self.command_thread.start()
+
+        # Expire blocks whose lifetime has ended
+        self.expiry_thread = threading.Thread(target=self._expiry_loop, daemon=True)
+        self.expiry_thread.start()
         
         self.logger.info("=" * 60)
         self.logger.info("SDN-IDS Controller Started")
         self.logger.info("  Suricata alert monitoring: ✓ Active")
         self.logger.info("  ML-based detection: %s", "✓ Active" if self.ml_enabled else "✗ Disabled")
         self.logger.info("  Command interface: ✓ Active (%s)", self.command_file)
+        self.logger.info("  Policy: mode=%s scope=%s timeout=%ss (x%.1f per repeat, max %ss)",
+                         self.policy_mode, self.block_scope, settings.BLOCK_HARD_TIMEOUT,
+                         settings.BLOCK_REPEAT_MULTIPLIER, settings.BLOCK_MAX_TIMEOUT)
+        self.logger.info("  ML persistence: %d positives within %.0fs (RF confidence >= %.2f)",
+                         settings.PERSISTENCE_R, settings.PERSISTENCE_WINDOW, self.ml_block_threshold)
+        self.logger.info("  Approved SIDs: %s",
+                         f"{len(self.sid_allowlist)} from {settings.AUTO_BLOCK_SIDS_FILE}"
+                         if self.sid_allowlist is not None else "none (falling back to severity 1-2)")
+        self.logger.info("  Live ML: %s | per-packet flow logs: %s",
+                         "on" if settings.ML_LIVE else "OFF (evaluated offline)",
+                         "on" if settings.VERBOSE_FLOWS else "off")
+        self.logger.info("  Event log: %s", settings.EVENTS_FILE)
         self.logger.info("=" * 60)
 
     def _load_suricata_port(self):
@@ -113,7 +152,8 @@ class SimpleSwitch13(app_manager.RyuApp):
                     for line in f:
                         ip = line.strip()
                         if ip and not ip.startswith('#'):
-                            self.blocked_ips.add(ip)
+                            self._new_block_record(ip, reason="Restored from file",
+                                                   source="restored", scope="blanket")
                 self.logger.info("✓ Loaded %d blocked IPs from file", len(self.blocked_ips))
                 self.stats['ips_blocked'] = len(self.blocked_ips)
         except Exception as e:
@@ -265,49 +305,36 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.warning("🔍 [ML] Anomaly detected: %s → %s (score: %.2f)",
                                src_ip, dst_ip, result.anomaly_score)
             
-            # Check if we should block based on ML recommendation
-            if result.recommendation == 'block' and result.attack_confidence >= self.ml_block_threshold:
-                self.stats['ml_blocks'] += 1
-                self.logger.warning("=" * 60)
-                self.logger.warning("🤖 ML ATTACK DETECTED")
-                self.logger.warning("  Flow: %s", result.flow_key)
-                self.logger.warning("  RF Attack Type: %s (%.1f%%)", 
-                                  result.attack_type, result.attack_confidence * 100)
-                if result.lstm_attack_type != 'unknown':
-                    self.logger.warning("  LSTM Attack Type: %s (%.1f%%)", 
-                                      result.lstm_attack_type, result.lstm_confidence * 100)
-                self.logger.warning("  Anomaly Score: %.2f", result.anomaly_score)
-                self.logger.warning("  Probabilities: %s", result.class_probabilities)
-                self.logger.warning("=" * 60)
-                
-                # Block the source IP
-                attack_info = f"ML detected {result.attack_type}"
-                if result.lstm_attack_type != 'unknown':
-                    attack_info += f" / LSTM: {result.lstm_attack_type}"
-                self._block_ip_all_switches(src_ip, 
-                    f"{attack_info} (conf: {result.attack_confidence:.2f})")
-                return True
-            
-            # ADDITIONAL TRIGGER: High anomaly score + attack classification (even with lower confidence)
-            # This catches attacks that anomaly detector is very sure about
-            elif (result.is_anomaly and 
-                  result.anomaly_score >= 0.95):  # Very low threshold if anomaly is certain
-                self.stats['ml_blocks'] += 1
-                self.logger.warning("=" * 60)
-                self.logger.warning("🤖 ANOMALY-BASED BLOCK TRIGGERED")
-                self.logger.warning("  Flow: %s", result.flow_key)
-                self.logger.warning("  Attack Type: %s (%.1f%%)", 
-                                  result.attack_type, result.attack_confidence * 100)
-                self.logger.warning("  ⚠️ VERY HIGH Anomaly Score: %.2f", result.anomaly_score)
-                self.logger.warning("  Reason: Anomaly detector highly confident")
-                self.logger.warning("=" * 60)
-                
-                attack_info = f"Anomaly-based: {result.attack_type} (anomaly: {result.anomaly_score:.2f})"
-                self._block_ip_all_switches(src_ip, attack_info)
-                return True
-            
+            # ML positive = anomaly detector says anomalous AND random forest says
+            # attack with enough confidence (AND, not OR: fewer false blocks).
+            ml_positive = (result.is_anomaly and
+                           result.attack_type != 'normal' and
+                           result.attack_confidence >= self.ml_block_threshold)
+            if ml_positive:
+                persistent = self.ml_persistence.record(src_ip)
+                hits = self.ml_persistence.count(src_ip)
+                self.event_log.log('ml_positive', src_ip=src_ip, dst_ip=dst_ip,
+                                ip_proto=ip_pkt.proto, attack_type=result.attack_type,
+                                confidence=round(float(result.attack_confidence), 4),
+                                anomaly_score=round(float(result.anomaly_score), 4),
+                                hits=hits, required=self.ml_persistence.r)
+                self.logger.warning("🤖 [ML] Positive %d/%d for %s → %s: %s (%.1f%%, anomaly %.2f)",
+                                    hits, self.ml_persistence.r, src_ip, dst_ip,
+                                    result.attack_type, result.attack_confidence * 100,
+                                    result.anomaly_score)
+
+                if persistent and self._policy() in ('ml', 'hybrid'):
+                    self.stats['ml_blocks'] += 1
+                    reason = (f"ML: {result.attack_type} (conf {result.attack_confidence:.2f}, "
+                              f"anomaly {result.anomaly_score:.2f}, {hits} positives "
+                              f"in {self.ml_persistence.window:.0f}s)")
+                    self._block_ip_all_switches(src_ip, reason, source='ml',
+                                                dst_ip=dst_ip, ip_proto=ip_pkt.proto)
+                    return True
+                return False
+
             # Log monitoring recommendations
-            elif result.recommendation == 'monitor':
+            if result.recommendation == 'monitor':
                 lstm_info = f", LSTM: {result.lstm_attack_type}" if result.lstm_attack_type != 'unknown' else ""
                 self.logger.info("👁️ [ML] Monitoring: %s → %s (anomaly: %.2f, RF: %s%s)",
                                 src_ip, dst_ip, result.anomaly_score, result.attack_type, lstm_info)
@@ -530,6 +557,18 @@ class SimpleSwitch13(app_manager.RyuApp):
                 else:
                     self.logger.warning("⚠️ Command failed: UNBLOCK %s", ip_address)
             
+            elif cmd == 'RESET':
+                # Between experiment runs: release everything, forget history
+                for ip in list(self.blocked_ips):
+                    self._release_block(ip, stage='release', reason='reset')
+                with self.state_lock:
+                    self.offences.clear()
+                self.alert_history.clear()
+                self.ml_persistence = PersistenceTracker(settings.PERSISTENCE_R,
+                                                         settings.PERSISTENCE_WINDOW)
+                self.event_log.log('reset')
+                self.logger.info("✅ Command executed successfully: RESET")
+
             elif cmd == 'BLOCK':
                 ip_address = arg
                 self._block_ip_all_switches(ip_address, "Manual block via command")
@@ -581,168 +620,310 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.logger.info("  Timestamp: %s", timestamp)
             self.logger.info("=" * 60)
             
-            # Block high-priority threats (severity 1-2)
-            if severity in [1, 2] and src_ip:
-                self.logger.warning("🚨 HIGH PRIORITY ALERT (Severity %s) - BLOCKING IP: %s", 
-                                  severity, src_ip)
-                self._block_ip_all_switches(src_ip, signature)
+            approved = (sid in self.sid_allowlist) if self.sid_allowlist is not None \
+                else severity in (1, 2)
+            self.event_log.log('alert', src_ip=src_ip, dst_ip=dst_ip, sid=sid,
+                            severity=severity, signature=signature,
+                            proto=alert_data.get('proto'), approved=approved,
+                            suricata_ts=timestamp)
+
+            if not src_ip:
+                return
+            if not approved:
+                self.logger.info("ℹ️ SID %s is not approved for automatic blocking - logged only", sid)
+                return
+            if self._policy() == 'ml':
+                self.logger.info("ℹ️ Policy mode 'ml': signature alert logged, not acted on")
+                return
+
+            self.logger.warning("🚨 APPROVED SIGNATURE (SID %s, severity %s) - BLOCKING %s",
+                                sid, severity, src_ip)
+            self._block_ip_all_switches(src_ip, signature, source='signature',
+                                        dst_ip=dst_ip,
+                                        ip_proto=proto_number(alert_data.get('proto')),
+                                        sid=sid)
             
         except Exception as e:
             self.logger.error("Error processing alert: %s", e)
 
-    def _block_ip_all_switches(self, ip_address, reason="Security threat"):
-        """Block an IP address on all connected switches"""
-        if ip_address in self.blocked_ips:
-            self.logger.debug("IP %s is already blocked", ip_address)
-            return
-        
-        self.blocked_ips.add(ip_address)
+    # ------------------------------------------------------------------
+    # Enforcement: decisions, rules, verification, release
+    # ------------------------------------------------------------------
+    BLOCK_PRIORITY = 200
+
+    VALID_POLICIES = ('signature', 'ml', 'hybrid')
+
+    def _policy(self):
+        """Policy for the run in progress (experiment harness can override per run)."""
+        run_policy = str(self.event_log.current_run().get('policy', '')).lower()
+        return run_policy if run_policy in self.VALID_POLICIES else self.policy_mode
+
+    def _enforce(self):
+        """False during capture runs: decisions are logged but no rules are installed."""
+        return bool(self.event_log.current_run().get('enforce', True))
+
+    def _new_block_record(self, ip_address, reason, source, scope=None,
+                          dst_ip=None, ip_proto=None):
+        """Create and register a BlockRecord (no switch messages yet)."""
+        with self.state_lock:
+            self.offences[ip_address] += 1
+            offence = self.offences[ip_address]
+            timeout = block_timeout(settings.BLOCK_HARD_TIMEOUT,
+                                    settings.BLOCK_REPEAT_MULTIPLIER,
+                                    settings.BLOCK_MAX_TIMEOUT, offence)
+            scope = scope or self.block_scope
+            if scope == 'blanket':
+                dst_ip, ip_proto = None, None
+            now = time.time()
+            record = BlockRecord(
+                ip=ip_address, cookie=make_cookie(ip_address), scope=scope,
+                dst_ip=dst_ip, ip_proto=ip_proto, reason=reason, source=source,
+                created=now, expires_at=(now + timeout) if timeout > 0 else None,
+                offence=offence,
+            )
+            self.blocks[ip_address] = record
+            self.blocked_ips.add(ip_address)
+            self.stats['ips_blocked'] = len(self.blocked_ips)
+            return record
+
+    def _block_ip_all_switches(self, ip_address, reason="Security threat", source='manual',
+                               dst_ip=None, ip_proto=None, sid=None):
+        """Decide to block `ip_address` and install the rules on every switch.
+
+        Manual blocks are blanket; signature/ML blocks follow BLOCK_SCOPE.
+        Rules expire after the record's hard timeout (longer for repeat offences).
+        """
+        with self.state_lock:
+            if ip_address in self.blocks:
+                self.logger.debug("IP %s is already blocked", ip_address)
+                return self.blocks[ip_address]
+            scope = 'blanket' if source == 'manual' else self.block_scope
+            if source in ('signature', 'ml') and not self._enforce():
+                self.event_log.log('decision', src_ip=ip_address, dst_ip=dst_ip,
+                                ip_proto=ip_proto, scope=scope, source=source, sid=sid,
+                                reason=reason, enforced=False)
+                self.logger.info("📝 Capture mode: would block %s (%s) - not enforced",
+                                 ip_address, reason)
+                return None
+            record = self._new_block_record(ip_address, reason, source, scope=scope,
+                                            dst_ip=dst_ip, ip_proto=ip_proto)
         self._save_blocked_ips()
-        self.stats['ips_blocked'] = len(self.blocked_ips)
-        
+        self.ml_persistence.reset(ip_address)
+
         # 🧩 FIX 4: CLEAN UP FLOW STATE WHEN BLOCKING
-        keys_to_delete = [
-            k for k in self.flow_ml_state
-            if k.startswith(ip_address)
-        ]
+        keys_to_delete = [k for k in self.flow_ml_state if k.startswith(ip_address)]
         for k in keys_to_delete:
             del self.flow_ml_state[k]
-        
-        if keys_to_delete:
-            self.logger.info("🧹 Cleaned up %d ML flow states for blocked IP: %s", 
-                           len(keys_to_delete), ip_address)
-        
+
+        timeout = record.remaining()
+        self.event_log.log('decision', src_ip=ip_address, dst_ip=record.dst_ip,
+                        ip_proto=record.ip_proto, scope=record.scope, source=source,
+                        sid=sid, reason=reason, cookie=hex(record.cookie),
+                        offence=record.offence, timeout=timeout or 0)
+
         blocked_count = 0
-        for dpid, datapath in self.datapaths.items():
+        for dpid, datapath in list(self.datapaths.items()):
             try:
-                self._install_ip_block_rules(datapath, ip_address)
+                self._install_ip_block_rules(datapath, record)
                 blocked_count += 1
             except Exception as e:
-                self.logger.error("Failed to block IP %s on DPID=%s: %s", 
-                                ip_address, dpid, e)
-        
+                self.logger.error("Failed to block IP %s on DPID=%s: %s", ip_address, dpid, e)
+
+        scope_desc = ("all traffic of the host" if record.scope == 'blanket' else
+                      f"{ip_address} → {record.dst_ip or 'any'} proto {record.ip_proto or 'any'}")
         self.logger.warning("=" * 60)
         self.logger.warning("🔒 IP BLOCKED: %s", ip_address)
         self.logger.warning("   Reason: %s", reason)
+        self.logger.warning("   Source: %s | Scope: %s", source, scope_desc)
+        self.logger.warning("   Lifetime: %s (offence #%d)",
+                            f"{timeout}s" if timeout else "until unblocked", record.offence)
         self.logger.warning("   Applied to: %d switches", blocked_count)
         self.logger.warning("   Total blocked IPs: %d", len(self.blocked_ips))
         self.logger.warning("=" * 60)
+        return record
 
-    def _install_ip_block_rules(self, datapath, ip_address):
-        """Install blocking flow rules for a specific IP on a switch"""
+    def _block_matches(self, record):
+        """OpenFlow matches for a block record (one per rule)."""
+        if record.scope == 'blanket':
+            return [dict(eth_type=0x0800, ipv4_src=record.ip),
+                    dict(eth_type=0x0800, ipv4_dst=record.ip)]
+        m = dict(eth_type=0x0800, ipv4_src=record.ip)
+        if record.dst_ip:
+            m['ipv4_dst'] = record.dst_ip
+        if record.ip_proto is not None:
+            m['ip_proto'] = int(record.ip_proto)
+        return [m]
+
+    def _install_ip_block_rules(self, datapath, record):
+        """Install the drop rules for `record` on one switch, then ask for a barrier."""
+        if isinstance(record, str):  # backwards compatibility: plain IP
+            record = self.blocks.get(record) or self._new_block_record(
+                record, "Manual block", "manual", scope='blanket')
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        
-        # CRITICAL: Use high priority (200) to override learning flows
-        priority = 200
-        
-        # Block packets FROM this IP (source)
-        match_src = parser.OFPMatch(eth_type=0x0800, ipv4_src=ip_address)
-        actions = []  # Empty actions = drop
-        self.add_flow(datapath, priority, match_src, actions)
-        
-        # Block packets TO this IP (destination)
-        match_dst = parser.OFPMatch(eth_type=0x0800, ipv4_dst=ip_address)
-        self.add_flow(datapath, priority, match_dst, actions)
-        
-        self.logger.info("  ✓ Installed block rules for %s on DPID=%s (priority=%d)", 
-                       ip_address, datapath.id, priority)
+        hard_timeout = record.remaining() or 0
+
+        for m in self._block_matches(record):
+            mod = parser.OFPFlowMod(
+                datapath=datapath,
+                cookie=record.cookie,
+                priority=self.BLOCK_PRIORITY,
+                match=parser.OFPMatch(**m),
+                instructions=[parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, [])],
+                hard_timeout=hard_timeout,
+                flags=ofproto.OFPFF_SEND_FLOW_REM,
+            )
+            datapath.send_msg(mod)
+
+        record.sent_dpids.add(datapath.id)
+        record.acked_dpids.discard(datapath.id)
+        self.event_log.log('flowmod_sent', src_ip=record.ip, dpid=datapath.id,
+                        cookie=hex(record.cookie), hard_timeout=hard_timeout)
+
+        # Barrier: the switch replies only after processing the FlowMods above,
+        # so the reply confirms the rules are in place.
+        barrier = parser.OFPBarrierRequest(datapath)
+        datapath.set_xid(barrier)
+        self.pending_barriers[barrier.xid] = (record.ip, datapath.id, time.time())
+        datapath.send_msg(barrier)
+
+        self.logger.info("  ✓ Installed %s block for %s on DPID=%s (priority=%d, timeout=%ss)",
+                         record.scope, record.ip, datapath.id, self.BLOCK_PRIORITY,
+                         hard_timeout or "none")
+
+    @set_ev_cls(ofp_event.EventOFPBarrierReply, MAIN_DISPATCHER)
+    def _barrier_reply_handler(self, ev):
+        entry = self.pending_barriers.pop(ev.msg.xid, None)
+        if not entry:
+            return
+        ip_address, dpid, sent_ts = entry
+        now = time.time()
+        self.event_log.log('barrier_ack', src_ip=ip_address, dpid=dpid,
+                        rtt_ms=round((now - sent_ts) * 1000, 2))
+        record = self.blocks.get(ip_address)
+        if not record:
+            return
+        record.acked_dpids.add(dpid)
+        if record.sent_dpids and record.acked_dpids >= record.sent_dpids:
+            self.event_log.log('block_verified', src_ip=ip_address,
+                            switches=len(record.acked_dpids),
+                            decision_to_verified_ms=round((now - record.created) * 1000, 2))
+            self.logger.info("  ✓ Block for %s confirmed by all %d switches (%.1f ms after decision)",
+                             ip_address, len(record.acked_dpids), (now - record.created) * 1000)
+
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)
+    def _flow_removed_handler(self, ev):
+        msg = ev.msg
+        if not is_policy_cookie(msg.cookie):
+            return
+        ofproto = msg.datapath.ofproto
+        reasons = {ofproto.OFPRR_IDLE_TIMEOUT: 'idle_timeout',
+                   ofproto.OFPRR_HARD_TIMEOUT: 'hard_timeout',
+                   ofproto.OFPRR_DELETE: 'delete'}
+        self.event_log.log('flow_removed', src_ip=ip_from_cookie(msg.cookie),
+                        dpid=msg.datapath.id, reason=reasons.get(msg.reason, msg.reason),
+                        packets=msg.packet_count, bytes=msg.byte_count,
+                        duration_s=msg.duration_sec)
 
     def _remove_ip_block_rules(self, datapath, ip_address):
-        """Remove blocking flow rules for a specific IP from a switch"""
+        """Remove every policy rule for `ip_address` from one switch (cookie-masked)."""
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        
-        # CRITICAL: Must match EXACT priority (200) used when blocking
-        priority = 200
-        
-        # Remove block rule for packets FROM this IP (source)
-        match_src = parser.OFPMatch(eth_type=0x0800, ipv4_src=ip_address)
-        mod_src = parser.OFPFlowMod(
+        mod = parser.OFPFlowMod(
             datapath=datapath,
             command=ofproto.OFPFC_DELETE,
+            table_id=ofproto.OFPTT_ALL,
+            cookie=cookie_for_ip(ip_address),
+            cookie_mask=COOKIE_MASK_TAG_AND_IP,
             out_port=ofproto.OFPP_ANY,
             out_group=ofproto.OFPG_ANY,
-            priority=priority,
-            match=match_src
+            match=parser.OFPMatch(),
         )
-        datapath.send_msg(mod_src)
-        
-        # Remove block rule for packets TO this IP (destination)
-        match_dst = parser.OFPMatch(eth_type=0x0800, ipv4_dst=ip_address)
-        mod_dst = parser.OFPFlowMod(
-            datapath=datapath,
-            command=ofproto.OFPFC_DELETE,
-            out_port=ofproto.OFPP_ANY,
-            out_group=ofproto.OFPG_ANY,
-            priority=priority,
-            match=match_dst
-        )
-        datapath.send_msg(mod_dst)
-        
-        self.logger.info("  ✓ Removed block rules for %s on DPID=%s (priority=%d)", 
-                       ip_address, datapath.id, priority)
+        datapath.send_msg(mod)
+        # Also remove rules from older controller versions (no cookie)
+        for m in (dict(eth_type=0x0800, ipv4_src=ip_address),
+                  dict(eth_type=0x0800, ipv4_dst=ip_address)):
+            datapath.send_msg(parser.OFPFlowMod(
+                datapath=datapath, command=ofproto.OFPFC_DELETE_STRICT,
+                priority=self.BLOCK_PRIORITY, out_port=ofproto.OFPP_ANY,
+                out_group=ofproto.OFPG_ANY, match=parser.OFPMatch(**m)))
+        self.logger.info("  ✓ Removed block rules for %s on DPID=%s", ip_address, datapath.id)
 
-    def _unblock_ip_all_switches(self, ip_address):
-        """Unblock an IP address on all connected switches"""
-        if ip_address not in self.blocked_ips:
-            self.logger.warning("⚠️ IP %s is not currently blocked", ip_address)
-            return False
-        
-        # Step 1: Remove from controller memory
-        self.blocked_ips.remove(ip_address)
+    def _release_block(self, ip_address, stage='release', reason='manual'):
+        """End a block: forget the decision and remove its rules everywhere."""
+        with self.state_lock:
+            record = self.blocks.pop(ip_address, None)
+            if record is None and ip_address not in self.blocked_ips:
+                return False
+            self.blocked_ips.discard(ip_address)
+            self.stats['ips_blocked'] = len(self.blocked_ips)
         self._save_blocked_ips()
-        self.stats['ips_blocked'] = len(self.blocked_ips)
-        
-        # Step 2: Clean up ML flow state (make future attacks look fresh)
-        keys_to_delete = [
-            k for k in self.flow_ml_state
-            if k.startswith(ip_address)
-        ]
+        self.ml_persistence.reset(ip_address)
+
+        keys_to_delete = [k for k in self.flow_ml_state if k.startswith(ip_address)]
         for k in keys_to_delete:
             del self.flow_ml_state[k]
-        
-        if keys_to_delete:
-            self.logger.info("🧹 Cleaned up %d ML flow states for unblocked IP: %s", 
-                           len(keys_to_delete), ip_address)
-        
-        # Step 3: CRITICAL - Remove DROP rules from all switches
+
         unblocked_count = 0
-        for dpid, datapath in self.datapaths.items():
+        for dpid, datapath in list(self.datapaths.items()):
             try:
                 self._remove_ip_block_rules(datapath, ip_address)
                 unblocked_count += 1
             except Exception as e:
-                self.logger.error("Failed to unblock IP %s on DPID=%s: %s", 
-                                ip_address, dpid, e)
-        
-        # Step 4: Clear dropped packet log so we can see new traffic
-        if ip_address in self.dropped_packet_log:
-            del self.dropped_packet_log[ip_address]
-        
+                self.logger.error("Failed to unblock IP %s on DPID=%s: %s", ip_address, dpid, e)
+        self.dropped_packet_log.pop(ip_address, None)
+        # A new attack after release must be able to trigger a new decision
+        for key in [k for k in self.alert_history if k[1] == ip_address]:
+            del self.alert_history[key]
+
+        held = round(time.time() - record.created, 2) if record else None
+        self.event_log.log(stage, src_ip=ip_address, reason=reason, held_s=held,
+                        switches=unblocked_count)
         self.logger.warning("=" * 60)
-        self.logger.warning("🔓 IP UNBLOCKED: %s", ip_address)
+        self.logger.warning("🔓 IP %s: %s", "EXPIRED" if stage == 'expiry' else "UNBLOCKED", ip_address)
+        if held is not None:
+            self.logger.warning("   Held for: %.1fs", held)
         self.logger.warning("   Applied to: %d switches", unblocked_count)
         self.logger.warning("   Total blocked IPs: %d", len(self.blocked_ips))
         self.logger.warning("=" * 60)
-        
         return True
+
+    def _unblock_ip_all_switches(self, ip_address):
+        """Unblock an IP address on all connected switches (manual release)."""
+        if ip_address not in self.blocked_ips:
+            self.logger.warning("⚠️ IP %s is not currently blocked", ip_address)
+            return False
+        return self._release_block(ip_address, stage='release', reason='manual')
+
+    def _expiry_loop(self):
+        """Release blocks whose lifetime has ended (switch rules expire on their own too)."""
+        while True:
+            try:
+                now = time.time()
+                with self.state_lock:
+                    expired = [ip for ip, r in self.blocks.items()
+                               if r.expires_at is not None and r.expires_at <= now]
+                for ip in expired:
+                    self._release_block(ip, stage='expiry', reason='hard_timeout')
+            except Exception as e:
+                self.logger.error("Error in expiry loop: %s", e)
+            time.sleep(1)
 
     def unblock_ip(self, ip_address):
         """
         Public method to unblock an IP address.
         Can be called manually or via API/command.
-        
+
         Args:
             ip_address: IP address to unblock (string)
-            
+
         Returns:
             bool: True if unblocked successfully, False otherwise
         """
         return self._unblock_ip_all_switches(ip_address)
 
     def _save_blocked_ips(self):
-        """Save blocked IPs to file"""
+        """Save blocked IPs to file (one per line; read by unblock_ip.py --list)"""
         try:
             with open(self.blocked_ips_file, 'w') as f:
                 f.write(f"# Blocked IPs - Updated: {datetime.now()}\n")
@@ -753,13 +934,24 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.logger.error("Error saving blocked IPs: %s", e)
 
     def _install_block_rules(self, datapath):
-        """Install blocking rules for all blocked IPs on a switch"""
-        for ip in self.blocked_ips:
-            self._install_ip_block_rules(datapath, ip)
-        
-        if self.blocked_ips:
-            self.logger.info("  ✓ Installed blocking rules for %d IPs on DPID=%s", 
-                           len(self.blocked_ips), datapath.id)
+        """Reconcile a (re)connecting switch: install every active block with its remaining lifetime."""
+        with self.state_lock:
+            records = list(self.blocks.values())
+        for record in records:
+            self._install_ip_block_rules(datapath, record)
+
+        if records:
+            self.logger.info("  ✓ Re-installed %d active blocks on DPID=%s", len(records), datapath.id)
+
+    def _packet_blocked(self, src_ip, dst_ip, ip_proto):
+        """Return the active block that drops this packet, or None."""
+        record = self.blocks.get(src_ip)
+        if record and record.matches(src_ip, dst_ip, ip_proto):
+            return record
+        record = self.blocks.get(dst_ip)
+        if record and record.scope == 'blanket':
+            return record
+        return None
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -832,7 +1024,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         datapath.send_msg(mod)
         
         # Log flow installation only for IPv4 packets (or blocking rules)
-        if log_flow:
+        if log_flow and settings.VERBOSE_FLOWS:
             action_str = "DROP" if not actions else ", ".join([str(a) for a in actions])
             self.logger.info("[FLOW] DPID=%s priority=%d actions=[%s]",
                             datapath.id, priority, action_str)
@@ -870,32 +1062,25 @@ class SimpleSwitch13(app_manager.RyuApp):
             src_ip = ip_pkt.src
             dst_ip = ip_pkt.dst
             
-            # Drop packets from or to blocked IPs (with rate-limited logging)
+            # Drop packets covered by an active block (scoped or blanket),
+            # with rate-limited logging
             current_time = time.time()
-            if src_ip in self.blocked_ips:
+            record = self._packet_blocked(src_ip, dst_ip, ip_pkt.proto)
+            if record:
                 self.stats['packets_blocked'] += 1
-                # Only log occasionally to avoid spam
-                if src_ip not in self.dropped_packet_log or \
-                   current_time - self.dropped_packet_log[src_ip] > self.dropped_log_interval:
-                    self.logger.warning("⛔ Dropping packets from blocked IP: %s (count: %d)", 
-                                       src_ip, self.stats['packets_blocked'])
-                    self.dropped_packet_log[src_ip] = current_time
+                if record.ip not in self.dropped_packet_log or \
+                   current_time - self.dropped_packet_log[record.ip] > self.dropped_log_interval:
+                    self.logger.warning("⛔ Dropping %s → %s (blocked: %s, count: %d)",
+                                        src_ip, dst_ip, record.ip, self.stats['packets_blocked'])
+                    self.dropped_packet_log[record.ip] = current_time
                 return
-            if dst_ip in self.blocked_ips:
-                self.stats['packets_blocked'] += 1
-                if dst_ip not in self.dropped_packet_log or \
-                   current_time - self.dropped_packet_log[dst_ip] > self.dropped_log_interval:
-                    self.logger.warning("⛔ Dropping packets to blocked IP: %s (count: %d)", 
-                                       dst_ip, self.stats['packets_blocked'])
-                    self.dropped_packet_log[dst_ip] = current_time
-                return
-            
+
             # Log IPv4 packets with IP addresses (only non-blocked traffic)
             self.logger.debug("[IPv4] DPID=%s %s → %s (MAC: %s → %s)",
                            dpid, src_ip, dst_ip, src, dst)
             
-            # ML-based threat detection
-            if self._process_ml_prediction(pkt, ip_pkt, dpid, in_port):
+            # ML-based threat detection (can be switched off: SDN_ML_LIVE=false)
+            if settings.ML_LIVE and self._process_ml_prediction(pkt, ip_pkt, dpid, in_port):
                 # ML recommended blocking this traffic
                 return
         
@@ -933,7 +1118,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             # Only log LEARN for IPv4 packets (cleaner output)
             if ip_pkt:
                 mirror_info = " +mirror" if (dpid == 1 and dpid in self.suricata_port) else ""
-                self.logger.info("[LEARN] DPID=%s %s → %s port %s→%s%s",
+                self.logger.debug("[LEARN] DPID=%s %s → %s port %s→%s%s",
                                dpid, ip_pkt.src, ip_pkt.dst, in_port, out_port, mirror_info)
             
             # Short idle_timeout=3 for ML to see more packets during attacks
