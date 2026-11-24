@@ -20,6 +20,9 @@ Definitions (also used in the paper):
   detection time     attack start -> controller decision for the attacker
   verified time      decision -> all switches confirmed the rule (barrier)
   containment time   attack start -> last attack packet seen at the victim
+                     (attack packets: ICMP echo requests / TCP SYN without ACK
+                     from the attacker; other traffic from the attacker host,
+                     e.g. its web server answering the victim, is not counted)
   residual packets   attack packets reaching the victim after confirmation
   false isolation    a decision (block) against a host that is not the
                      session's attacker
@@ -37,7 +40,10 @@ from statistics import median
 
 # ------------------------------------------------------------------ pcap
 def read_pcap(path):
-    """Yield (ts, src_ip, dst_ip, proto) for IPv4 packets in a classic pcap."""
+    """Yield (ts, src_ip, dst_ip, proto, kind) for IPv4 packets in a classic pcap.
+
+    kind: 'icmp_echo_req' | 'tcp_syn' (SYN without ACK) | 'other'
+    """
     with open(path, "rb") as f:
         hdr = f.read(24)
         if len(hdr) < 24:
@@ -70,9 +76,16 @@ def read_pcap(path):
                 continue
             ip = data[off:off + 20]
             proto = ip[9]
+            ihl = (ip[0] & 0x0F) * 4
             src = ".".join(str(b) for b in ip[12:16])
             dst = ".".join(str(b) for b in ip[16:20])
-            yield sec + frac / (1e9 if nano else 1e6), src, dst, proto
+            l4 = data[off + ihl:]
+            kind = "other"
+            if proto == 1 and len(l4) >= 1 and l4[0] == 8:
+                kind = "icmp_echo_req"
+            elif proto == 6 and len(l4) >= 14 and (l4[13] & 0x12) == 0x02:
+                kind = "tcp_syn"
+            yield sec + frac / (1e9 if nano else 1e6), src, dst, proto, kind
 
 
 # ------------------------------------------------------------------ helpers
@@ -152,13 +165,17 @@ def analyze(run_dir, events_path):
 
         # victim capture
         pcap = run_dir / r["victim_pcap"]
+        # attack packets = what the attack tool sends; replies from the
+        # attacker's own (benign) web server to the victim are not attack traffic
+        attack_kind = {"icmp_flood": "icmp_echo_req", "syn_flood": "tcp_syn",
+                       "port_scan": "tcp_syn", "syn_lowrate": "tcp_syn"}.get(r["scenario"])
         att_ts, benign_before, benign_during = [], 0, 0
         if pcap.exists():
-            for ts, src, dst, proto in read_pcap(pcap):
+            for ts, src, dst, proto, kind in read_pcap(pcap):
                 if dst != victim:
                     continue
                 if attacker and src == attacker:
-                    if a_start and ts >= a_start - 0.5:
+                    if kind == attack_kind and a_start and ts >= a_start - 0.5:
                         att_ts.append(ts)
                 elif a_start:
                     if s_start <= ts < a_start:
